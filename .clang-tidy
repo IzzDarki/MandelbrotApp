@@ -1,0 +1,6 @@
+---
+# https://clang.llvm.org/extra/clang-tidy/
+Checks:          'clang-analyzer-*,cppcoreguidelines-*,misc-*,modernize-*,performance-*,portability-*,readability-*,-modernize-use-trailing-return-type,-readability-braces-around-statements,-readability-uppercase-literal-suffix,-cppcoreguidelines-pro-type-vararg,-cppcoreguidelines-avoid-magic-numbers,-readability-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index'
+WarningsAsErrors: ''
+HeaderFilterRegex: ''
+FormatStyle:     none
