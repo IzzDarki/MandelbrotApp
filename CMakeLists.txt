@@ -1,83 +1,129 @@
 cmake_minimum_required(VERSION 3.13.5)
-project(MandelbrotProject VERSION 0.1.0)
+project(MandelbrotProject VERSION 0.1.0 LANGUAGES C CXX)
 
-# include(CTest)
-# enable_testing()
+# -----------------------------------------------------------------------------
+# Options (toggle these with -D on cmake command line)
+option(ENABLE_CLANG_TIDY "Enable static analysis with clang-tidy" OFF)
+# Sanitizer options are handled inside cmake/Sanitizers.cmake via options
+# -----------------------------------------------------------------------------
 
-# Set output directories for release and debug
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/bin-debug)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/bin-release)
-
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR}/lib)
-# include_directories(${CMAKE_SOURCE_DIR}/lib/GLFW/include)
-include_directories(${CMAKE_SOURCE_DIR}/lib/GLAD/include)
-
-# Compile definitions
-add_compile_definitions(MandelbrotProject GLFW_INCLUDE_NONE)
-
-# Static analysis (only debug)
-include(cmake/StaticAnalysis.cmake)
-
-# Exectutable
-add_executable(MandelbrotApp "")
-target_sources(MandelbrotApp PRIVATE
+# Executable and sources
+add_executable(MandelbrotApp
     src/main.cpp
-
-    src/shader.h
     src/shader.cpp
-    src/app_utility.h
     src/app_utility.cpp
-    src/ini_file.h
-    src/saved_view.h
     src/saved_view.cpp
-
-    lib/GLAD/glad.c
 )
 
+# optional: headers for IDE visibility
+target_sources(MandelbrotApp PRIVATE
+    src/shader.h
+    src/app_utility.h
+    src/ini_file.h
+    src/saved_view.h
+)
+
+# C++ standard
 set_property(TARGET MandelbrotApp PROPERTY CXX_STANDARD 20)
 
-# set compiler warnings
+# -----------------------------------------------------------------------------
+# Target-scoped includes and defines (DO NOT use global include_directories / add_compile_definitions)
+target_include_directories(MandelbrotApp PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    # ${CMAKE_SOURCE_DIR}/lib/GLAD/include
+)
+
+
+target_compile_definitions(MandelbrotApp PRIVATE GLFW_INCLUDE_NONE)
+
+# -----------------------------------------------------------------------------
+# Output directory per configuration (multi-config friendly)
+# e.g. bin-Release, bin-Debug
+set_target_properties(MandelbrotApp PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin-$<CONFIG>
+)
+
+# -----------------------------------------------------------------------------
+# Warnings
 include(cmake/CompilerWarnings.cmake)
 set_project_warnings(MandelbrotApp)
 
-# sanitizer options if supported by compiler (only debug)
+# Sanitizers (function will add generator-expr-based options so they only apply in Debug)
 include(cmake/Sanitizers.cmake)
 enable_sanitizers(MandelbrotApp)
 
-# ImGui Library
-add_library(ImGuiLib STATIC "")
-target_sources(ImGuiLib PRIVATE
-    lib/ImGui/imgui.h
+# Static analysis (clang-tidy) applied per-target for Debug via generator-expression
+include(cmake/StaticAnalysis.cmake)
+if(ENABLE_CLANG_TIDY)
+  enable_clang_tidy_for_target(MandelbrotApp)
+endif()
+
+
+
+# -----------------------------------------------------------------------------
+# Dependencies
+
+# Find and link system libraries
+find_package(OpenGL REQUIRED)
+find_package(glfw3 3.3 REQUIRED) # system glfw3
+
+# prefer imported target if available
+if(TARGET glfw::glfw)
+  set(GLFW_TARGET glfw::glfw)
+elseif(TARGET glfw)
+  set(GLFW_TARGET glfw)
+else()
+  set(GLFW_TARGET glfw)
+endif()
+
+# ImGui Library (static) and GLAD
+add_library(ImGuiLib STATIC
     lib/ImGui/imgui.cpp
-    lib/ImGui/imgui_internal.h
     lib/ImGui/imgui_tables.cpp
     lib/ImGui/imgui_widgets.cpp
     lib/ImGui/imgui_draw.cpp
-    lib/ImGui/imstb_rectpack.h
-    lib/ImGui/imstb_textedit.h
-    lib/ImGui/imstb_truetype.h
-    lib/ImGui/imconfig.h
-    lib/ImGui/imgui_impl_opengl3.h
     lib/ImGui/imgui_impl_opengl3.cpp
     lib/ImGui/imgui_impl_glfw.cpp
-    lib/ImGui/imgui_impl_glfw.h
 )
 
-# sanitizer options if supported by compiler (only debug)
-enable_sanitizers(ImGuiLib)
+# Make sure ImGui has its headers and the GL loader header (glad) available
+target_include_directories(ImGuiLib
+  PUBLIC
+    ${CMAKE_SOURCE_DIR}/lib/ImGui
+    ${CMAKE_SOURCE_DIR}/lib/GLAD/include   # <-- provide glad.h
+)
 
-#link ImGui
-target_link_libraries(MandelbrotApp ImGuiLib)
+# Tell ImGui backend to use GLAD as the loader
+target_compile_definitions(ImGuiLib PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
 
-# link glfw
-find_package(glfw3 3.3 REQUIRED) # doesn't work (with X11)?
-target_link_libraries(MandelbrotApp pthread glfw) # doesn't work (with X11)?
-# target_link_libraries(MandelbrotApp pthread ${CMAKE_SOURCE_DIR}/lib/GLFW/bin/libglfw3.a)
+# If needed (optional), keep ImGui-specific defs
+# target_compile_definitions(ImGuiLib PRIVATE IMGUI_IMPL_OPENGL_LOADER_CUSTOM="\"path/to/custom_loader.h\"")
 
-# needed for glad (for opening libraries)
-target_link_libraries(MandelbrotApp ${CMAKE_DL_LIBS})
+# GLAD
+add_library(glad STATIC ${CMAKE_SOURCE_DIR}/lib/GLAD/glad.c)
+target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/lib/GLAD/include)
+# if GLAD needs any compile defs, add them:
+# target_compile_definitions(glad PRIVATE SOME_DEF_IF_NEEDED)
 
+# Link glad into ImGuiLib (so backend links to implementation,
+# and final executable will also link glad via ImGuiLib dependency)
+target_link_libraries(ImGuiLib PUBLIC glad ${GLFW_TARGET})
+
+# Also link glad into your final executable explicitly (safe)
+target_link_libraries(MandelbrotApp PRIVATE
+  ImGuiLib       # brings glad transitively
+  ${GLFW_TARGET}
+  OpenGL::GL
+  ${CMAKE_DL_LIBS}
+)
+
+# On Unix, prefer Threads::Threads (this is portable)
+if(UNIX AND NOT APPLE)
+  find_package(Threads REQUIRED)
+  target_link_libraries(MandelbrotApp PRIVATE Threads::Threads)
+endif()
+
+# -----------------------------------------------------------------------------
 # CPack
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
