@@ -62,6 +62,19 @@
         "bitset": "cpp",
         "cstring": "cpp",
         "map": "cpp",
-        "regex": "cpp"
-    }
+        "regex": "cpp",
+        "variant": "cpp",
+        "queue": "cpp"
+    },
+    "cSpell.words": [
+        "CPACK",
+        "GLFW",
+        "imconfig",
+        "imgui",
+        "imstb",
+        "libglfw",
+        "opengl",
+        "pthread",
+        "vsync"
+    ]
 }

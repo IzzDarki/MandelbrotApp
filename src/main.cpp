@@ -33,6 +33,14 @@ static bool autoMaxIterations = true;
 static int maxIterations = 300;
 static bool ImGuiEnabled = true;
 
+static const char* FLOW_COLOR_TYPE = "FLOW_COLOR_TYPE";
+static const char* CODE_DIVERGENCE_CRITERION = "CODE_DIVERGENCE_CRITERION";
+static const char* CODE_CALCULATE_NEXT_SEQUENCE_TERM = "CODE_CALCULATE_NEXT_SEQUENCE_TERM";
+
+static const char* DEFAULT_FLOW_COLOR_TYPE = "3";
+static char codeDivergenceCriterion[1000] = "real*real + imag*imag > 4";
+static char codeCalculateNextSequenceTerm[2000] = "real = real*real - imag*imag + startReal;\nimag = 2 * realTemp * imag + startImag;";
+
 
 // * HELPER FUNCTIONS
 
@@ -93,7 +101,7 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 	ImGui::NewFrame();
 
 	if (ImGui::Begin("Options", &showImGuiWindow, ImGuiWindowFlags_NoCollapse)) {	// Create a window and append into it.
-		ImGui::SetWindowSize({0,0}, ImGuiCond_FirstUseEver); // set window to fit contents when first creating it (ImGui saves position bewteen sessions)
+		ImGui::SetWindowSize({0,0}, ImGuiCond_FirstUseEver); // set window to fit contents when first creating it (ImGui saves position between sessions)
 
 		if (ImGui::BeginTabBar("#idTabBar"))
 		{
@@ -101,21 +109,54 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 			{
 				if (ImGui::SliderInt("Max iterations", &maxIterations, 1, 8000))
 					autoMaxIterations = false;
-				ImGui::Checkbox("auto max iterations", &autoMaxIterations);
+				ImGui::Checkbox("Auto max iterations", &autoMaxIterations);
 
 				ImGui::Text("Color: ");
 				ImGui::SameLine();
-				if (ImGui::SmallButton("RGB"))
-					shader.mandelRecompileWithColor(0);
+				if (ImGui::SmallButton("RGB")) {
+					shader.define(FLOW_COLOR_TYPE, "0");
+					shader.recompile();
+				}
 				ImGui::SameLine();
-				if (ImGui::SmallButton("Black/White"))
-					shader.mandelRecompileWithColor(1);
+				if (ImGui::SmallButton("Smooth")) {
+					shader.define(FLOW_COLOR_TYPE, "3");
+					shader.recompile();
+				}
+				
+				// new line
+				if (ImGui::SmallButton("Black/White")) {
+					shader.define(FLOW_COLOR_TYPE, "1");
+					shader.recompile();
+				}
 				ImGui::SameLine();
-				if (ImGui::SmallButton("Glowing"))
-					shader.mandelRecompileWithColor(2);
+				if (ImGui::SmallButton("Glowing")) {
+					shader.define(FLOW_COLOR_TYPE, "2");
+					shader.recompile();
+				}				
 
+				static int colorAccuracy = 10;
+				if (ImGui::DragInt("Color accuracy", &colorAccuracy, 1.0f, 1, 1'000))
+					shader.setUInt("colorAccuracy", (uint)colorAccuracy);
+				ImGui::NewLine();
+
+				// Sequence
+				ImGui::Text("Sequence code (1. Divergence criterion, 2. Code to calculate next term in sequence)");
+    			ImGui::InputTextMultiline("1", codeDivergenceCriterion, IM_ARRAYSIZE(codeDivergenceCriterion),
+					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2.5)
+				);
+				ImGui::InputTextMultiline("2", codeCalculateNextSequenceTerm, IM_ARRAYSIZE(codeCalculateNextSequenceTerm),
+					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.5)
+				);
+				if (ImGui::SmallButton("Apply")) {
+					shader.define(CODE_DIVERGENCE_CRITERION, std::string(codeDivergenceCriterion));
+					shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, std::string(codeCalculateNextSequenceTerm));
+					shader.recompile();
+				}
+				ImGui::NewLine();
+
+				// Status info
 				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-				ImGui::Text("%.1f fps", calcFPSAverage());
+				ImGui::Text("%.1f fps", static_cast<double>(calcFPSAverage()));
 				ImGui::Text("Zoom: %.1Le", zoomScale);
 				auto [real, imag] = getNumberAtCursor();
 				ImGui::Text("Cursor: %.10Lf + %.10Lf i", real, imag);
@@ -317,7 +358,7 @@ static void initImGui() {
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
 
-	ImFont* font = io.Fonts->AddFontFromFileTTF((AppRootDir + "res/ImGuiFonts/Roboto-Medium.ttf").c_str(), 15.0f);
+	ImFont* font = io.Fonts->AddFontFromFileTTF("../res/ImGuiFonts/Roboto-Medium.ttf", 15.0f);
 	if (font == nullptr)
 		std::cout << "Error: Font for ImGui could not be loaded" << std::endl;
 }
@@ -335,7 +376,15 @@ int main()
 		return -1;
 	initImGui();
 
-	shader = {AppRootDir + "res/vertex_shader.glsl", AppRootDir + "res/fragment_shader.glsl", true, false}; // Compile and link shader, but keep sources, ...
+	// Shader
+	shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
+	// define default values 
+	shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
+	shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
+	shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, codeCalculateNextSequenceTerm);
+	shader.compileVertexShader();
+	shader.compileFragmentShader();
+	shader.link();
 
 	float vertices[] = {
 		-1.0f, -1.0f,	// bottom left
@@ -390,9 +439,9 @@ int main()
 		// use program
 		shader.use();
 
-		shader.setVec2UInt("windowSize", windowWidth, windowHeight);
+		shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
 		shader.setDouble("zoomScale", zoomScale);
-		shader.setVec2Double("numberStart", realPartStart, imagPartStart);
+		shader.setVec2Double("numberStart", { realPartStart, imagPartStart });
 		shader.setUInt("maxIterations", getMaxIterations());
 	
 		if (ImGuiEnabled)
@@ -427,7 +476,7 @@ int main()
 		}
 	}
 
-	// delete al resources (not necessary)
+	// delete all resources (not necessary)
 	glDeleteVertexArrays(1, &vertexArray);
 	glDeleteBuffers(1, &vertexBuffer);
 	shader.clean();

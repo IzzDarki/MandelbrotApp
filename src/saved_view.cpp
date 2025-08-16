@@ -6,7 +6,13 @@
 
 std::vector<SavedView> SavedView::allViews;
 
-IniFile<int> SavedView::iniFile{AppRootDir + "saved_views.ini"};
+#ifdef NDEBUG
+constexpr const char* INI_FILE_PATH = "saved_views.ini";
+#else
+constexpr const char* INI_FILE_PATH = "../bin/saved_views.ini";
+#endif
+
+IniFile<int> SavedView::iniFile{INI_FILE_PATH};
 
 void SavedView::initFromFile() {
 	for (const auto& pair : iniFile) {

@@ -5,12 +5,12 @@ project(MandelbrotProject VERSION 0.1.0)
 # enable_testing()
 
 # Set output directories for release and debug
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/../)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/../)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/bin-debug)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/bin-release)
 
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/lib)
-include_directories(${CMAKE_SOURCE_DIR}/lib/GLFW/include)
+# include_directories(${CMAKE_SOURCE_DIR}/lib/GLFW/include)
 include_directories(${CMAKE_SOURCE_DIR}/lib/GLAD/include)
 
 # Compile definitions
@@ -71,9 +71,9 @@ enable_sanitizers(ImGuiLib)
 target_link_libraries(MandelbrotApp ImGuiLib)
 
 # link glfw
-# find_package(glfw3 3.3 REQUIRED) # doesnt work (with X11)
-# target_link_libraries(MandelbrotApp pthread glfw) # doesnt work (with X11)
-target_link_libraries(MandelbrotApp pthread ${CMAKE_SOURCE_DIR}/lib/GLFW/bin/X11-release/libglfw3.a)
+find_package(glfw3 3.3 REQUIRED) # doesn't work (with X11)?
+target_link_libraries(MandelbrotApp pthread glfw) # doesn't work (with X11)?
+# target_link_libraries(MandelbrotApp pthread ${CMAKE_SOURCE_DIR}/lib/GLFW/bin/libglfw3.a)
 
 # needed for glad (for opening libraries)
 target_link_libraries(MandelbrotApp ${CMAKE_DL_LIBS})

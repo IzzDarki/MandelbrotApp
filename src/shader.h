@@ -9,20 +9,81 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
+#include <variant>
+#include <tuple>
 
 #include <glad/glad.h>
 
+namespace vec {
+    using vec2int = std::tuple<int, int>;
+    using vec3int = std::tuple<int, int, int>;
+    using vec4int = std::tuple<int, int, int, int>;
+    using vec2uint = std::tuple<uint, uint>;
+    using vec3uint = std::tuple<uint, uint, uint>;
+    using vec4uint = std::tuple<uint, uint, uint, uint>;
+    using vec2 = std::tuple<float, float>;
+    using vec3 = std::tuple<float, float, float>;
+    using vec4 = std::tuple<float, float, float, float>;
+    using vec2double = std::tuple<double, double>;
+    using vec3double = std::tuple<double, double, double>;
+    using vec4double = std::tuple<double, double, double, double>;
+
+    template <typename... Ts>
+    static decltype(auto) getX(const std::tuple<Ts...>& tuple) {
+        return std::get<0>(tuple);
+    }
+
+    template <typename... Ts>
+    static decltype(auto) getY(const std::tuple<Ts...>& tuple) {
+        return std::get<1>(tuple);
+    }
+
+    template <typename... Ts>
+    static decltype(auto) getZ(const std::tuple<Ts...>& tuple) {
+        return std::get<2>(tuple);
+    }
+
+    template <typename... Ts>
+    static decltype(auto) getW(const std::tuple<Ts...>& tuple) {
+        return std::get<3>(tuple);
+    }
+}
+
 class Shader
 {
-protected:
+public:
+    using vec2int = vec::vec2int;
+    using vec3int = vec::vec3int;
+    using vec4int = vec::vec4int;
+    using vec2uint = vec::vec2uint;
+    using vec3uint = vec::vec3uint;
+    using vec4uint = vec::vec4uint;
+    using vec2 = vec::vec2;
+    using vec3 = vec::vec3;
+    using vec4 = vec::vec4;
+    using vec2double = vec::vec2double;
+    using vec3double = vec::vec3double;
+    using vec4double = vec::vec4double;
+    
+    using uniform_t = std::variant<
+        int,
+        vec2int,
+        vec3int,
+        vec4int,
+        uint,
+        vec2uint,
+        vec3uint,
+        vec4uint,
+        float,
+        vec2,
+        vec3,
+        vec4,
+        double,
+        vec2double,
+        vec3double,
+        vec4double>;
 
-    unsigned int vertexShader;
-    unsigned int fragmentShader;
-    unsigned int shaderProgram;
-
-    std::string vertexShaderSource;
-    std::string fragmentShaderSource;
-    std::unordered_map<std::string, std::string> defines;
+    static constexpr auto MANDEL_FLOW_COLOR_TYPE = "FLOW_COLOR_TYPE";
 
 public:
     Shader() = default;
@@ -50,22 +111,39 @@ public:
      */
     void clean();
 
-    void setInt(const std::string& name, int value);
-    void setVec2Int(const std::string& name, int x, int y);
-    void setVec3Int(const std::string& name, int x, int y, int z);
-    void setVec4Int(const std::string& name, int x, int y, int z, int w);
-    void setUInt(const std::string& name, unsigned int value);
-    void setVec2UInt(const std::string& name, unsigned int x, unsigned int y);
-    void setVec3UInt(const std::string& name, unsigned int x, unsigned int y, unsigned int z);
-    void setVec4UInt(const std::string& name, unsigned int x, unsigned int y, unsigned int z, unsigned int w);
-    void setFloat(const std::string& name, float value);
-    void setVec2(const std::string& name, float x, float y);
-    void setVec3(const std::string& name, float x, float y, float z);
-    void setVec4(const std::string& name, float x, float y, float z, float w);
-    void setDouble(const std::string& name, double value);
-    void setVec2Double(const std::string& name, double x, double y);
-    void setVec3Double(const std::string& name, double x, double y, double z);
-    void setVec4Double(const std::string& name, double x, double y, double z, double w);
+    void setInt(const std::string& name, int val);
+    void setVec2Int(const std::string& name, vec2int val);
+    void setVec3Int(const std::string& name, vec3int val);
+    void setVec4Int(const std::string& name, vec4int val);
+    void setUInt(const std::string& name, uint val);
+    void setVec2UInt(const std::string& name, vec2uint val);
+    void setVec3UInt(const std::string& name, vec3uint val);
+    void setVec4UInt(const std::string& name, vec4uint val);
+    void setFloat(const std::string& name, float val);
+    void setVec2(const std::string& name, vec2 val);
+    void setVec3(const std::string& name, vec3 val);
+    void setVec4(const std::string& name, vec4 val);
+    void setDouble(const std::string& name, double val);
+    void setVec2Double(const std::string& name, vec2double val);
+    void setVec3Double(const std::string& name, vec3double val);
+    void setVec4Double(const std::string& name, vec4double val);
+
+    auto getInt(const std::string& name) -> int;
+    auto getVec2Int(const std::string& name) -> vec2int;
+    auto getVec3Int(const std::string& name) -> vec3int;
+    auto getVec4Int(const std::string& name) -> vec4int;
+    auto getUInt(const std::string& name) -> uint;
+    auto getVec2UInt(const std::string& name) -> vec2uint;
+    auto getVec3UInt(const std::string& name) -> vec3uint;
+    auto getVec4UInt(const std::string& name) -> vec4uint;
+    auto getFloat(const std::string& name) -> float;
+    auto getVec2(const std::string& name) -> vec2;
+    auto getVec3(const std::string& name) -> vec3;
+    auto getVec4(const std::string& name) -> vec4;
+    auto getDouble(const std::string& name) -> double;
+    auto getVec2Double(const std::string& name) -> vec2double;
+    auto getVec3Double(const std::string& name) -> vec3double;
+    auto getVec4Double(const std::string& name) -> vec4double;
 
     /**
      * When later compiling the the shaders, every occurrence of `name` in the all the shader sources will be replaced by `value`
@@ -75,7 +153,18 @@ public:
      */
     inline void define(const std::string& name, const std::string& value) { defines[name] = value; }
 
-    void mandelRecompileWithColor(int colorNumber);
+    void recompile();
+
+protected:
+
+    unsigned int vertexShader;
+    unsigned int fragmentShader;
+    unsigned int shaderProgram;
+
+    std::string vertexShaderSource;
+    std::string fragmentShaderSource;
+    std::unordered_map<std::string, std::string> defines;
+    std::unordered_map<std::string, uniform_t> uniforms;
 
 protected: // helpers
 

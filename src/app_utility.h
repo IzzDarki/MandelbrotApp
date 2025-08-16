@@ -6,8 +6,6 @@
 #include <fstream>
 #include <sstream>
 
-const std::string AppRootDir = ""; // Set this, so that it points to the directory in which the "res/" directory can be found
-
 /**
  * Type representing a complex number
  * `first` is the real part

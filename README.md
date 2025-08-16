@@ -10,3 +10,20 @@ The zoom depth is limited by the accuracy of floating point numbers.
 ![Sceenshot 6](screenshots/Mandelbrot-Screenshot-6.png)
 ![Sceenshot 7](screenshots/Mandelbrot-Screenshot-7.png)
 
+### Build
+I am not an expert on CMake, but the following works:
+1. `cd` to `build/` (and ensure it is empty)
+    ```shell
+    rm -rf build
+    mkdir build
+    cd build
+    ```
+2. Run `cmake` while specifying release or debug configuration (`Release` or `Debug`)
+    ```shell
+    cmake --DCMAKE_BUILD_TYPE=Release ..
+    ```
+3. Build
+    ```shell
+    cmake --build . -j
+    ```
+4. Find the compiled binary in `bin-release/` or `bin-debug/`
