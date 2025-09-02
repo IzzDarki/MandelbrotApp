@@ -5,10 +5,10 @@ void copyStringToBuffer(const std::string& string, char* buffer, unsigned int si
     buffer[index] = '\0';
 }
 
-unsigned long hashDjb2(const std::string& str) {
-    unsigned long hash = 5381;
+int hashDjb2(const std::string& str) {
+    int hash = 5381;
     for (auto c : str) {
-        hash = (hash << 5) + hash + c; /* hash * 33 + c */
+        hash = (hash << 5) + hash + static_cast<int>(c); /* hash * 33 + c */
     }
     return hash;
 }
@@ -30,4 +30,15 @@ std::string readFileToString(const char* filePath) {
     std::stringstream stringStream; 
     stringStream << inputStream.rdbuf();
     return stringStream.str();
+}
+
+
+std::string getDirectoryFromFilePath(const std::string& filePath) {
+    auto pos = filePath.rfind('/');
+
+    if (pos == std::string::npos) {
+        return "";
+    } else {
+        return filePath.substr(0, pos + 1);
+    }
 }

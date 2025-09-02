@@ -37,7 +37,7 @@ static const char* FLOW_COLOR_TYPE = "FLOW_COLOR_TYPE";
 static const char* CODE_DIVERGENCE_CRITERION = "CODE_DIVERGENCE_CRITERION";
 static const char* CODE_CALCULATE_NEXT_SEQUENCE_TERM = "CODE_CALCULATE_NEXT_SEQUENCE_TERM";
 
-static const char* DEFAULT_FLOW_COLOR_TYPE = "3";
+// static const char* DEFAULT_FLOW_COLOR_TYPE = "3";
 static char codeDivergenceCriterion[1000] = "real*real + imag*imag > 4";
 static char codeCalculateNextSequenceTerm[2000] = "real = real*real - imag*imag + startReal;\nimag = 2 * realTemp * imag + startImag;";
 
@@ -48,7 +48,7 @@ static int getMaxIterations() {
 	//int zoomCount = -std::log(zoomScale / 3.5) / std::log(ZOOM_STEP); // how often you have zoomed in
 
 	if (autoMaxIterations) {
-		maxIterations = 400 + 100L * -std::log10(zoomScale);
+		maxIterations = static_cast<int>(400 + 100L * -std::log10(zoomScale));
 		if (maxIterations < 200)
 			maxIterations = 200;
 		else if (maxIterations > 4000)
@@ -132,7 +132,7 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				if (ImGui::SmallButton("Glowing")) {
 					shader.define(FLOW_COLOR_TYPE, "2");
 					shader.recompile();
-				}				
+				}
 
 				static int colorAccuracy = 10;
 				if (ImGui::DragInt("Color accuracy", &colorAccuracy, 1.0f, 1, 1'000))
@@ -142,10 +142,10 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				// Sequence
 				ImGui::Text("Sequence code (1. Divergence criterion, 2. Code to calculate next term in sequence)");
     			ImGui::InputTextMultiline("1", codeDivergenceCriterion, IM_ARRAYSIZE(codeDivergenceCriterion),
-					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2.5)
+					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2.5f)
 				);
 				ImGui::InputTextMultiline("2", codeCalculateNextSequenceTerm, IM_ARRAYSIZE(codeCalculateNextSequenceTerm),
-					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.5)
+					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.5f)
 				);
 				if (ImGui::SmallButton("Apply")) {
 					shader.define(CODE_DIVERGENCE_CRITERION, std::string(codeDivergenceCriterion));
@@ -153,6 +153,11 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 					shader.recompile();
 				}
 				ImGui::NewLine();
+
+				// Only for differential equation plot
+				static float endTime = 3.0;
+				if (ImGui::DragFloat("End-Time", &endTime, 0, 0.0, 20.0))
+					shader.setFloat("end_time", endTime);
 
 				// Status info
 				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -218,6 +223,8 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 			{
 				ImGui::Text("Press Ctrl + Enter to toggle GUI");
 				ImGui::Text("Press Ctrl + Esc or Pause to exit the app");
+				ImGui::Text("Press Ctrl + Plus/Minus to zoom in/out (numpad works too)");
+				ImGui::Text("Use Mouse Wheel to zoom in/out");
 				ImGui::EndTabItem();
 			}
 			ImGui::EndTabBar();
@@ -230,8 +237,8 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 
 // * CALLBACK FUNCTIONS
 
-static void windowResizeCallback(GLFWwindow* window, int width, int height)
-{
+static void windowResizeCallback(GLFWwindow* _window, int width, int height) {
+	(void)_window; // suppress unused warning
 	realPartStart = (0.5l * zoomScale * (1.0l / windowWidth - 1.0l / width)) + realPartStart;
 	imagPartStart = ((long double)width / height) * ((zoomScale * (0.5l * windowHeight + 0.5l) + imagPartStart * windowHeight) / windowWidth) - (0.5l * zoomScale * (1.0l + 1.0l / height));
 	windowWidth = width;
@@ -240,6 +247,8 @@ static void windowResizeCallback(GLFWwindow* window, int width, int height)
 }  
 
 static void debugCallbackOpenGL(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam) {
+	(void)length;     // suppress unused warning
+	(void)userParam; // suppress unused warning
 	std::cout << "OpenGL debug: " << "source: " << source << ", type: " << type << ", id: " << id << ", severity: " << severity << std::endl
 		<< message << std::endl;
 }
@@ -248,28 +257,47 @@ static void errorCallbackGLFW(int error, const char* description) {
 	std::cout << "GLFW error: (" << error << "): " << description << std::endl; 
 }
 
-static void mouseScrollCallbackGLFW(GLFWwindow* window, double xOffset, double yOffset) {
+static void mouseScrollCallbackGLFW(GLFWwindow* _window, double xOffset, double yOffset) {
+	(void)_window; // suppress unused warning
+	(void)xOffset; // suppress unused warning
+
 	if (yOffset == 1.0)
 		zoom(1 / ZOOM_STEP);
 	else if (yOffset == -1.0)
 		zoom(ZOOM_STEP);
 }
 
-static void keyCallbackGLFW(GLFWwindow* window, int key, int scancode, int action, int mods) {
+static void keyCallbackGLFW(GLFWwindow* _window, int key, int scancode, int action, int mods) {
+	(void)scancode; // suppress unused warning
+	(void)mods;     // suppress unused warning
 	switch (key) {
 		case GLFW_KEY_PAUSE:
 			if (action == GLFW_PRESS)
-				glfwSetWindowShouldClose(window, true);
+				glfwSetWindowShouldClose(_window, true);
 			break;
 
 		case GLFW_KEY_ESCAPE:
-			if (action == GLFW_PRESS && glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-				glfwSetWindowShouldClose(window, true);
+			if (action == GLFW_PRESS && glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+				glfwSetWindowShouldClose(_window, true);
 			break;
 
 		case GLFW_KEY_ENTER:
-			if (action == GLFW_PRESS && glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+			if (action == GLFW_PRESS && glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
 				ImGuiEnabled = !ImGuiEnabled;
+			break;
+
+		case GLFW_KEY_KP_ADD: // Numpad +
+		case GLFW_KEY_EQUAL:  // Regular +
+			if (action == GLFW_PRESS && glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
+				zoom(1 / ZOOM_STEP);
+			}
+			break;
+
+		case GLFW_KEY_KP_SUBTRACT: // Numpad -
+		case GLFW_KEY_MINUS:       // Regular -
+			if (action == GLFW_PRESS && glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
+				zoom(ZOOM_STEP);
+			}
 			break;
 	}
 }
@@ -377,11 +405,12 @@ int main()
 	initImGui();
 
 	// Shader
-	shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
+	//shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
+	shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false }; // Compile and link shader, but keep sources, ...
 	// define default values 
-	shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
-	shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
-	shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, codeCalculateNextSequenceTerm);
+	//shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
+	//shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
+	//shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, codeCalculateNextSequenceTerm);
 	shader.compileVertexShader();
 	shader.compileFragmentShader();
 	shader.link();
@@ -440,9 +469,9 @@ int main()
 		shader.use();
 
 		shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
-		shader.setDouble("zoomScale", zoomScale);
+		shader.setDouble("zoomScale", static_cast<double>(zoomScale));
 		shader.setVec2Double("numberStart", { realPartStart, imagPartStart });
-		shader.setUInt("maxIterations", getMaxIterations());
+		shader.setUInt("maxIterations", static_cast<unsigned int>(getMaxIterations()));
 	
 		if (ImGuiEnabled)
 			ImGui::Render();
@@ -465,7 +494,7 @@ int main()
 		if (ImGuiEnabled) {
 			timePoint endTime = std::chrono::high_resolution_clock::now();
 			auto delta = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-			lastFrameDeltas[lastFrameArrayIndex++] = (1000.0f / delta.count());
+			lastFrameDeltas[lastFrameArrayIndex++] = (1000.0f / static_cast<float>(delta.count()));
 			if (lastFrameArrayIndex == lastFrameDeltas.size())
 				lastFrameArrayIndex = 0;
 		}

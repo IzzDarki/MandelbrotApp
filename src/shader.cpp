@@ -1,11 +1,17 @@
 #include "shader.h"
 
+#include <regex>
+#include <string>
+
 using namespace vec;
 
 Shader::Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath, bool compileAndLink, bool clean) {
-    this->defines = defines;
-    vertexShaderSource = readFileToString(vertexShaderSourcePath.c_str());
-    fragmentShaderSource = readFileToString(fragmentShaderSourcePath.c_str());
+
+    std::cout << "Hello from Shader Constructor" << std::endl;
+
+    // this->defines = defines;
+    vertexShaderSource = Shader::loadShaderSourceFromPath(vertexShaderSourcePath);
+    fragmentShaderSource = Shader::loadShaderSourceFromPath(fragmentShaderSourcePath);
 
     if (compileAndLink) {
         compileVertexShader();
@@ -35,12 +41,12 @@ void Shader::deleteProgram() {
 
 void Shader::compileVertexShader() {
     std::string finalShaderSource = replaceDefines(vertexShaderSource);
-    vertexShader = loadShaderFromFile(GL_VERTEX_SHADER, finalShaderSource);
+    vertexShader = loadShaderFromSource(GL_VERTEX_SHADER, finalShaderSource);
 }
 
 void Shader::compileFragmentShader() {
     std::string finalShaderSource = replaceDefines(fragmentShaderSource);
-    fragmentShader = loadShaderFromFile(GL_FRAGMENT_SHADER, finalShaderSource);
+    fragmentShader = loadShaderFromSource(GL_FRAGMENT_SHADER, finalShaderSource);
 }
 
 void Shader::link() {
@@ -263,7 +269,46 @@ std::string Shader::replaceDefines(const std::string& shaderSource) const {
     return shaderSourceWidthDefines;
 }
 
-unsigned int Shader::loadShaderFromFile(int type, const std::string& shaderSource) {
+std::string Shader::loadShaderSourceFromPath(const std::string& shaderSourcePath, unsigned int maxDepth, unsigned int depth) {
+
+    std::string shaderSource = readFileToString(shaderSourcePath.c_str());
+    
+    std::regex includeRegex("#include\\s*\"([^\"]+)\"");
+    
+    std::string result;
+    std::sregex_iterator it(shaderSource.begin(), shaderSource.end(), includeRegex);
+    std::sregex_iterator end;
+    
+    size_t lastPos = 0;
+    for (; it != end; ++it) {
+        if (depth == maxDepth) {
+            std::cerr << "Reached maximum depth while loading shaders with #includes, maybe there is a cycle?" << std::endl;
+            throw std::runtime_error("Reached maximum depth while loading shaders with #includes, maybe there is a cycle?");
+        }
+
+        auto match = *it;
+
+        // before this match
+        result.append(shaderSource, lastPos, static_cast<size_t>(match.position()) - lastPos);
+
+        // capture group 1 = text inside quotes
+        std::string includeFilePath = match[1].str();
+
+        // Computed replacement
+        std::string includeShaderSourceCode = loadShaderSourceFromPath(getDirectoryFromFilePath(shaderSourcePath) + includeFilePath, maxDepth, depth + 1);
+
+        // rebuild the include line
+        result += includeShaderSourceCode;
+
+        lastPos = static_cast<size_t>(match.position() + match.length());
+    }
+    // append the rest of the string
+    result.append(shaderSource, lastPos, shaderSource.size() - lastPos);
+
+    return result;
+}
+
+unsigned int Shader::loadShaderFromSource(GLenum type, const std::string& shaderSource) {
     unsigned int shader = glCreateShader(type);
     const char* shaderSourceCString = shaderSource.c_str();
     glShaderSource(shader, 1, &shaderSourceCString, nullptr);

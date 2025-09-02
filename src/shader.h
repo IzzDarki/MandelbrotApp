@@ -170,11 +170,17 @@ protected: // helpers
 
     std::string replaceDefines(const std::string& shaderSource) const;
 
+    /**
+     * Loads shader source code from a path and recursively loads #include dependencies which are literally copy pasted into the source code of the parent shader
+     * #includes must be relative to the directory, where the shader file itself is located, i.e. in "res/parent.glsl" includes must be relative to "res/"
+    */
+    static std::string loadShaderSourceFromPath(const std::string& shaderSourcePath, unsigned int maxDepth = 20, unsigned int depth = 0);
+
     /** 
      * @param type Needs to be either GL_VERTEX_SHADER or GL_FRAGMENT_SHADER
      * @return Id of the shader object
      */
-    static unsigned int loadShaderFromFile(int type, const std::string& shaderSource);
+    static unsigned int loadShaderFromSource(GLenum type, const std::string& shaderSource);
 
     /**
      * @return Id of the program object 

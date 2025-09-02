@@ -13,7 +13,7 @@ protected:
     std::map<Key_t, std::string> contents;
 
 public:
-    IniFile(const std::string& path) : path{path} {
+    IniFile(const std::string& _path) : path{_path} {
         readContents();
     }
 

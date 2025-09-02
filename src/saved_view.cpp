@@ -36,8 +36,8 @@ void SavedView::removeSavedView(const SavedView& savedView) {
 
 // * non-static
 
-void SavedView::setName(const std::string& name) {
-	this->name = name;
+void SavedView::setName(const std::string& _name) {
+	this->name = _name;
 	replaceAll(this->name, "|", "");
 	iniFile.set(imGuiIDs[0], viewDataToString());
 }
@@ -47,7 +47,7 @@ bool SavedView::isIDValid(int id) {
 		return false; // -1 is invalid
 
 	for (const SavedView& savedView : allViews) {
-		for (int c = 0; c < NUMBER_OF_IDS; c++) {
+		for (size_t c = 0; c < NUMBER_OF_IDS; c++) {
 			if (id == savedView.imGuiIDs[c])
 				return false;
 		}
@@ -56,7 +56,7 @@ bool SavedView::isIDValid(int id) {
 }
 
 int SavedView::createNewID() const {
-    std::srand(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    std::srand(static_cast<unsigned int>(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
 	int newID;
 	do {
 		newID = hashDjb2(getName()) + std::rand();
@@ -65,14 +65,16 @@ int SavedView::createNewID() const {
 	return newID;
 }
 
-SavedView::SavedView(long double zoomScale, const ComplexNum& startNum, const std::string& name)
-    : zoomScale(zoomScale), startNum(startNum), name(name)
+SavedView::SavedView(long double _zoomScale, const ComplexNum& _startNum, const std::string& _name)
+    : zoomScale(_zoomScale), startNum(_startNum), name(_name)
 {
-    if (name.empty())
+    if (_name.empty()) {
         this->name = createGenericName();
+	}
 
-	for (int& imGuiID : imGuiIDs)
+	for (int& imGuiID : imGuiIDs) {
 		imGuiID = createNewID();
+	}
 }
 
 SavedView::SavedView(int firstID, const std::string& viewData) {
@@ -93,7 +95,7 @@ SavedView::SavedView(int firstID, const std::string& viewData) {
 	std::getline(stream, value, '|');
 	startNum.second = std::stold(value);
 
-	for (int i = 0; std::getline(stream, value, '|'); i++)
+	for (size_t i = 0; std::getline(stream, value, '|'); i++)
 		imGuiIDs[i + 1] = std::stoi(value);
 }
 
@@ -109,7 +111,7 @@ std::string SavedView::viewDataToString() const {
 	std::stringstream stream;
 	stream.precision(std::numeric_limits<long double>::max_digits10);
 	stream << name << '|' << zoomScale << '|' << startNum.first << '|' << startNum.second << '|';
-	for (int i = 1; i < imGuiIDs.size(); i++)
+	for (size_t i = 1; i < imGuiIDs.size(); i++)
 		stream << imGuiIDs[i] << '|';
 	return stream.str();
 }

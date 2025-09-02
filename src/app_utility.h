@@ -25,7 +25,7 @@ void copyStringToBuffer(const std::string& string, char* buffer, unsigned int si
 /**
  * Hash algorithm for strings (djb2)
  */
-unsigned long hashDjb2(const std::string& str);
+int hashDjb2(const std::string& str);
 
 /**
  * Replaces all occurrences of `search` in `string` with `replace`
@@ -45,5 +45,11 @@ bool replaceAll(std::string& string, const std::string& search, const std::strin
  * @throws Could throw `std::ifstream::failure`
  */
 std::string readFileToString(const char* filePath);
+
+/** 
+ * @param filePath e.g. "res/shader.glsl"
+ * @return std::string e.g. "res/"
+ */
+std::string getDirectoryFromFilePath(const std::string& filePath);
 
 #endif
