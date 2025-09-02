@@ -20,12 +20,12 @@ uint calcFractal(
 	double realTemp = 0;
 
 	for (int n = 1; n < maxIterations + 1; n++) {
-		if (CODE_DIVERGENCE_CRITERION) { // in case of mandelbrot (real * real) + (imag * imag) > 4
+		if (CODE_DIVERGENCE_CRITERION) { // in case of mandelbrot: (real * real) + (imag * imag) > 4
 			return n;
 		}
 		realTemp = real;
 
-		CODE_CALCULATE_NEXT_SEQUENCE_TERM // in case of mandelbrot real = (real * real) - (imag * imag) + startReal; imag = 2 * realTemp * imag + startImag;
+		CODE_CALCULATE_NEXT_SEQUENCE_TERM // in case of mandelbrot: real = (real * real) - (imag * imag) + startReal; imag = 2 * realTemp * imag + startImag;
 	}
 #if FLOW_COLOR_TYPE == 3
 	escapeReal = real;
