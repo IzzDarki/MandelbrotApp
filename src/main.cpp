@@ -25,7 +25,10 @@ static int windowHeight = 720;
 static long double zoomScale = 3.5L; //1.7e-10;
 static long double realPartStart = -2.5L; //-0.04144230656908739;
 static long double imagPartStart = -1.75L; //1.48014290228390966;
-static constexpr long double ZOOM_STEP = 1.1L;
+static bool zoomingIn = false; // e.g. if Ctrl + Plus is pressed, this is true
+static bool zoomingOut = false;
+static constexpr long double ZOOM_STEP = 1.1L; // single zoom step (multiplicative)
+static constexpr double ZOOM_PER_SECOND = 3.0; // continuous zoom (multiplicative)
 
 static std::array<float, 25> lastFrameDeltas;
 static std::size_t lastFrameArrayIndex = 0;
@@ -134,30 +137,30 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 					shader.recompile();
 				}
 
-				static int colorAccuracy = 10;
-				if (ImGui::DragInt("Color accuracy", &colorAccuracy, 1.0f, 1, 1'000))
-					shader.setUInt("colorAccuracy", (uint)colorAccuracy);
-				ImGui::NewLine();
+				// static int colorAccuracy = 10;
+				// if (ImGui::DragInt("Color accuracy", &colorAccuracy, 1.0f, 1, 1'000))
+				// 	shader.setUInt("colorAccuracy", (uint)colorAccuracy);
+				// ImGui::NewLine();
 
 				// Sequence
-				ImGui::Text("Sequence code (1. Divergence criterion, 2. Code to calculate next term in sequence)");
-    			ImGui::InputTextMultiline("1", codeDivergenceCriterion, IM_ARRAYSIZE(codeDivergenceCriterion),
-					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2.5f)
-				);
-				ImGui::InputTextMultiline("2", codeCalculateNextSequenceTerm, IM_ARRAYSIZE(codeCalculateNextSequenceTerm),
-					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.5f)
-				);
-				if (ImGui::SmallButton("Apply")) {
-					shader.define(CODE_DIVERGENCE_CRITERION, std::string(codeDivergenceCriterion));
-					shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, std::string(codeCalculateNextSequenceTerm));
-					shader.recompile();
-				}
-				ImGui::NewLine();
+				// ImGui::Text("Sequence code (1. Divergence criterion, 2. Code to calculate next term in sequence)");
+    			// ImGui::InputTextMultiline("1", codeDivergenceCriterion, IM_ARRAYSIZE(codeDivergenceCriterion),
+				// 	ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2.5f)
+				// );
+				// ImGui::InputTextMultiline("2", codeCalculateNextSequenceTerm, IM_ARRAYSIZE(codeCalculateNextSequenceTerm),
+				// 	ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.5f)
+				// );
+				// if (ImGui::SmallButton("Apply")) {
+				// 	shader.define(CODE_DIVERGENCE_CRITERION, std::string(codeDivergenceCriterion));
+				// 	shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, std::string(codeCalculateNextSequenceTerm));
+				// 	shader.recompile();
+				// }
+				// ImGui::NewLine();
 
 				// Only for differential equation plot
-				static float endTime = 3.0;
-				if (ImGui::DragFloat("End-Time", &endTime, 0, 0.0, 20.0))
-					shader.setFloat("end_time", endTime);
+				static float endTime = 0.0;
+				if (ImGui::DragFloat("End-Time", &endTime, 0, 0.0, 10.0))
+					shader.setFloat("t_end", endTime);
 
 				// Status info
 				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -269,37 +272,52 @@ static void mouseScrollCallbackGLFW(GLFWwindow* _window, double xOffset, double 
 
 static void keyCallbackGLFW(GLFWwindow* _window, int key, int scancode, int action, int mods) {
 	(void)scancode; // suppress unused warning
-	(void)mods;     // suppress unused warning
+
+	bool ctrl = (mods & GLFW_MOD_CONTROL) != 0;
+	
+	// Solo Keys
 	switch (key) {
 		case GLFW_KEY_PAUSE:
 			if (action == GLFW_PRESS)
 				glfwSetWindowShouldClose(_window, true);
 			break;
-
-		case GLFW_KEY_ESCAPE:
-			if (action == GLFW_PRESS && glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-				glfwSetWindowShouldClose(_window, true);
-			break;
-
-		case GLFW_KEY_ENTER:
-			if (action == GLFW_PRESS && glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-				ImGuiEnabled = !ImGuiEnabled;
-			break;
-
-		case GLFW_KEY_KP_ADD: // Numpad +
-		case GLFW_KEY_EQUAL:  // Regular +
-			if (action == GLFW_PRESS && glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
-				zoom(1 / ZOOM_STEP);
-			}
-			break;
-
-		case GLFW_KEY_KP_SUBTRACT: // Numpad -
-		case GLFW_KEY_MINUS:       // Regular -
-			if (action == GLFW_PRESS && glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
-				zoom(ZOOM_STEP);
-			}
-			break;
 	}
+
+	// Ctrl + Key
+	if (ctrl) {
+		switch (key) {
+			case GLFW_KEY_ESCAPE:
+				if (action == GLFW_PRESS)
+					glfwSetWindowShouldClose(_window, true);
+				break;
+
+			case GLFW_KEY_ENTER:
+				if (action == GLFW_PRESS)
+					ImGuiEnabled = !ImGuiEnabled;
+				break;
+
+			case GLFW_KEY_KP_ADD: // Numpad +
+			case GLFW_KEY_EQUAL:  // Regular +
+				if (action == GLFW_PRESS) {
+					zoom(1.0 / ZOOM_STEP);
+					zoomingIn = true;
+				} else if (action == GLFW_RELEASE) {
+					zoomingIn = false;
+				}
+				break;
+
+			case GLFW_KEY_KP_SUBTRACT: // Numpad -
+			case GLFW_KEY_MINUS:       // Regular -
+				if (action == GLFW_PRESS) {
+					zoom(ZOOM_STEP);
+					zoomingOut = true;
+				} else if (action == GLFW_RELEASE) {
+					zoomingOut = false;
+				}
+				break;
+		}
+	}
+
 }
 
 
@@ -457,11 +475,10 @@ int main()
 	// Render loop
 	while (!glfwWindowShouldClose(window)) {
 		using timePoint = decltype(std::chrono::high_resolution_clock::now());
-		timePoint startTime;
+		timePoint startTime =  std::chrono::high_resolution_clock::now();
 
 		static bool showImGuiWindow = true;
 		if (ImGuiEnabled) {
-			startTime = std::chrono::high_resolution_clock::now();
 			ImGuiFrame(showImGuiWindow);
 		}
 
@@ -491,9 +508,18 @@ int main()
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 		
+		timePoint endTime = std::chrono::high_resolution_clock::now();
+		auto delta = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
+		// Zooming
+		if (zoomingIn) {
+			// TODO That doesnt make sense for multipliative zoom
+			zoom(1.0 / pow(ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
+		} else if (zoomingOut) {
+			zoom(pow(ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
+		}
+
 		if (ImGuiEnabled) {
-			timePoint endTime = std::chrono::high_resolution_clock::now();
-			auto delta = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 			lastFrameDeltas[lastFrameArrayIndex++] = (1000.0f / static_cast<float>(delta.count()));
 			if (lastFrameArrayIndex == lastFrameDeltas.size())
 				lastFrameArrayIndex = 0;
