@@ -32,17 +32,32 @@ static constexpr double ZOOM_PER_SECOND = 3.0; // continuous zoom (multiplicativ
 
 static std::array<float, 25> lastFrameDeltas;
 static std::size_t lastFrameArrayIndex = 0;
-static bool autoMaxIterations = true;
-static int maxIterations = 300;
+static bool autoMaxIterations = false;
+
+// RK45 Paramters
+static int maxIterations = 10'000;
+static float atolExponent = -5.0f; // corresponds to 1e-5
+static float rtolExponent = -5.0f; // corresponds to 1e-5
+
+// Double Pendulum Parameters
+static float simulationEndTime = 3.0f;
+static float v1Start = 0.0f;
+static float v2Start = 0.0f;
+static float weightConstant = 9.81f;
+static float length1 = 1.0f;
+static float length2 = 1.0f;
+static float mass1 = 1.0f;
+static float mass2 = 1.0f;
+
 static bool ImGuiEnabled = true;
 
-static const char* FLOW_COLOR_TYPE = "FLOW_COLOR_TYPE";
-static const char* CODE_DIVERGENCE_CRITERION = "CODE_DIVERGENCE_CRITERION";
-static const char* CODE_CALCULATE_NEXT_SEQUENCE_TERM = "CODE_CALCULATE_NEXT_SEQUENCE_TERM";
+// static const char* FLOW_COLOR_TYPE = "FLOW_COLOR_TYPE";
+// static const char* CODE_DIVERGENCE_CRITERION = "CODE_DIVERGENCE_CRITERION";
+// static const char* CODE_CALCULATE_NEXT_SEQUENCE_TERM = "CODE_CALCULATE_NEXT_SEQUENCE_TERM";
 
 // static const char* DEFAULT_FLOW_COLOR_TYPE = "3";
-static char codeDivergenceCriterion[1000] = "real*real + imag*imag > 4";
-static char codeCalculateNextSequenceTerm[2000] = "real = real*real - imag*imag + startReal;\nimag = 2 * realTemp * imag + startImag;";
+// static char codeDivergenceCriterion[1000] = "real*real + imag*imag > 4";
+// static char codeCalculateNextSequenceTerm[2000] = "real = real*real - imag*imag + startReal;\nimag = 2 * realTemp * imag + startImag;";
 
 
 // * HELPER FUNCTIONS
@@ -110,32 +125,40 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 		{
 			if (ImGui::BeginTabItem("Info"))
 			{
-				if (ImGui::SliderInt("Max iterations", &maxIterations, 1, 8000))
+				ImGui::Text("RK45 Controls: ");
+				if (ImGui::SliderInt("Max iterations", &maxIterations, 1, 100'000))
 					autoMaxIterations = false;
-				ImGui::Checkbox("Auto max iterations", &autoMaxIterations);
+				//ImGui::Checkbox("Auto max iterations", &autoMaxIterations);
+
+				if (ImGui::SliderFloat("Absolute Tolerance Exponent (10^x)", &atolExponent, -14.0, 2.0))
+					shader.setFloat("atol", std::pow(10.0f, atolExponent));
+
+				if (ImGui::SliderFloat("Relative Tolerance Exponent (10^x)", &rtolExponent, -14.0, 2.0))
+					shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
+
 
 				ImGui::Text("Color: ");
-				ImGui::SameLine();
-				if (ImGui::SmallButton("RGB")) {
-					shader.define(FLOW_COLOR_TYPE, "0");
-					shader.recompile();
-				}
-				ImGui::SameLine();
-				if (ImGui::SmallButton("Smooth")) {
-					shader.define(FLOW_COLOR_TYPE, "3");
-					shader.recompile();
-				}
+				// ImGui::SameLine();
+				// if (ImGui::SmallButton("RGB")) {
+				// 	shader.define(FLOW_COLOR_TYPE, "0");
+				// 	shader.recompile();
+				// }
+				// ImGui::SameLine();
+				// if (ImGui::SmallButton("Smooth")) {
+				// 	shader.define(FLOW_COLOR_TYPE, "3");
+				// 	shader.recompile();
+				// }
 				
-				// new line
-				if (ImGui::SmallButton("Black/White")) {
-					shader.define(FLOW_COLOR_TYPE, "1");
-					shader.recompile();
-				}
-				ImGui::SameLine();
-				if (ImGui::SmallButton("Glowing")) {
-					shader.define(FLOW_COLOR_TYPE, "2");
-					shader.recompile();
-				}
+				// // new line
+				// if (ImGui::SmallButton("Black/White")) {
+				// 	shader.define(FLOW_COLOR_TYPE, "1");
+				// 	shader.recompile();
+				// }
+				// ImGui::SameLine();
+				// if (ImGui::SmallButton("Glowing")) {
+				// 	shader.define(FLOW_COLOR_TYPE, "2");
+				// 	shader.recompile();
+				// }
 
 				// static int colorAccuracy = 10;
 				// if (ImGui::DragInt("Color accuracy", &colorAccuracy, 1.0f, 1, 1'000))
@@ -157,10 +180,31 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				// }
 				// ImGui::NewLine();
 
-				// Only for differential equation plot
-				static float endTime = 0.0;
-				if (ImGui::DragFloat("End-Time", &endTime, 0, 0.0, 10.0))
-					shader.setFloat("t_end", endTime);
+				ImGui::Text("Double Pendulum Controls: ");
+				if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0, 10.0)) {
+					shader.setFloat("t_end", simulationEndTime);
+				}
+				if (ImGui::SliderFloat("v1-Start", &v1Start, -1.0f, +1.0f)) {
+					shader.setFloat("v1_start", v1Start);
+				}
+				if (ImGui::SliderFloat("v2-Start", &v2Start, -1.0f, +1.0f)) {
+					shader.setFloat("v2_start", v2Start);
+				}
+				if (ImGui::SliderFloat("g", &weightConstant, -5.0, 40.0)) {
+					shader.setFloat("g", weightConstant);
+				}
+				if (ImGui::SliderFloat("l1", &length1, -1.0, 8.0)) {
+					shader.setFloat("l1", length1);
+				}
+				if (ImGui::SliderFloat("l2", &length2, -1.0, 8.0)) {
+					shader.setFloat("l2", length2);
+				}
+				if (ImGui::SliderFloat("m1", &mass1, -2.0, 8.0)) {
+					shader.setFloat("m1", mass1);
+				}
+				if (ImGui::SliderFloat("m2", &mass2, -2.0, 8.0)) {
+					shader.setFloat("m2", mass2);
+				}
 
 				// Status info
 				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -409,6 +453,20 @@ static void initImGui() {
 		std::cout << "Error: Font for ImGui could not be loaded" << std::endl;
 }
 
+static void initUniformVariables() {
+	shader.setUInt("MAX_STEPS", static_cast<uint>(maxIterations));
+	shader.setFloat("atol", std::pow(10.0f, atolExponent));
+	shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
+	shader.setFloat("t_end", simulationEndTime);
+	shader.setFloat("v1_start", v1Start);
+	shader.setFloat("v2_start", v2Start);
+	shader.setFloat("g", weightConstant);
+	shader.setFloat("l1", length1);
+	shader.setFloat("l2", length2);
+	shader.setFloat("m1", mass1);
+	shader.setFloat("m2", mass2);
+}
+
 
 // * MAIN FUNCTION
 
@@ -424,7 +482,7 @@ int main()
 
 	// Shader
 	//shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
-	shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false }; // Compile and link shader, but keep sources, ...
+	shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false); // Compile and link shader, but keep sources, ...
 	// define default values 
 	//shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
 	//shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
@@ -432,6 +490,7 @@ int main()
 	shader.compileVertexShader();
 	shader.compileFragmentShader();
 	shader.link();
+	shader.use(); // Needs to be called before setting uniform variables
 
 	float vertices[] = {
 		-1.0f, -1.0f,	// bottom left
@@ -472,6 +531,8 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
+	initUniformVariables();
+
 	// Render loop
 	while (!glfwWindowShouldClose(window)) {
 		using timePoint = decltype(std::chrono::high_resolution_clock::now());
@@ -482,13 +543,13 @@ int main()
 			ImGuiFrame(showImGuiWindow);
 		}
 
-		// use program
+		// use program (should be called in the loop, since other parts could use other programs in the meantime, according to ChatGPT)
 		shader.use();
 
 		shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
 		shader.setDouble("zoomScale", static_cast<double>(zoomScale));
 		shader.setVec2Double("numberStart", { realPartStart, imagPartStart });
-		shader.setUInt("maxIterations", static_cast<unsigned int>(getMaxIterations()));
+		shader.setUInt("MAX_STEPS", static_cast<unsigned int>(getMaxIterations()));
 	
 		if (ImGuiEnabled)
 			ImGui::Render();
@@ -499,7 +560,7 @@ int main()
 
 		// draw
 		glBindVertexArray(vertexArray);
-		glDrawElements(GL_TRIANGLES, 9, GL_UNSIGNED_INT, (void*)0);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 
 		if (ImGuiEnabled)
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -514,9 +575,9 @@ int main()
 		// Zooming
 		if (zoomingIn) {
 			// TODO That doesnt make sense for multipliative zoom
-			zoom(1.0 / pow(ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
+			zoom(1.0 / std::pow(ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
 		} else if (zoomingOut) {
-			zoom(pow(ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
+			zoom(std::pow(ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
 		}
 
 		if (ImGuiEnabled) {
@@ -534,6 +595,7 @@ int main()
 	// delete all resources (not necessary)
 	glDeleteVertexArrays(1, &vertexArray);
 	glDeleteBuffers(1, &vertexBuffer);
+	glDeleteBuffers(1, &elementBuffer);
 	shader.clean();
 	shader.deleteProgram();
 

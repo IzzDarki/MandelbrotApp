@@ -3,13 +3,16 @@
 
 // Double Pendulum Parameters
 const real t0 = 0.0;
-#define g 9.81
-#define l1 1.0
-#define l2 1.0
-#define m1 1.0
-#define m2 1.0
-#define p1_start 0.0
-#define p2_start 0.0
+uniform float g;
+uniform float l1;
+uniform float l2;
+uniform float m1;
+uniform float m2;
+// #define g 9.81
+// #define l1 1.0
+// #define l2 1.0
+// #define m1 1.0
+// #define m2 1.0
 
 void dH(rvec2 q, rvec2 p, out rvec2 dH_dq, out rvec2 dH_dp) {
 

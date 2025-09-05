@@ -24,12 +24,15 @@ const real b1_ = 1.0/9.0;   const real b2_ = 0.0; const real b3_ = 9.0/20.0; con
 const real tau_fac_min = 1.0/3.0; const real tau_fac_max = 2.0; // tau_fac_max between 1.5 and 5.0 according to Numerik-Skript
 const real tau_fac = 0.9; // tau_fac = 0.8 or 0.9 or pow(0.25, 1.0/p), where p = 5.0 in our case according to Numerik-Skript
 
-const real rtol = 1e-8; // TODO should be uniform real
-const real atol = 1e-8; // may not be 0.0 // TODO should be uniform real
+//const real rtol = 1e-8;
+//const real atol = 1e-8; // must be non-zero
+uniform float rtol;
+uniform float atol; // must be non-zero
 
-const uint MAX_STEPS = 10000u;    // TODO 
-const uint MAX_SAME_STEPS = 22u; // TODO
-const real MIN_TAU = 1e-5;       // TODO
+// const uint MAX_STEPS = 10000u;
+uniform uint MAX_STEPS;
+const uint MAX_SAME_STEPS = 22u;
+const real MIN_TAU = 1e-5;
 
 const uint SUCCESS = 0u;
 const uint ERR_TOO_MANY_STEPS = 1u;

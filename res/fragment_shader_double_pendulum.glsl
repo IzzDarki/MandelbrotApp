@@ -5,6 +5,8 @@ uniform double zoomScale;
 uniform dvec2 numberStart;
 uniform uint maxIterations;
 uniform float t_end;
+uniform float v1_start;
+uniform float v2_start;
 
 #include "real.glsl"
 #include "colormaps.glsl"
@@ -71,9 +73,24 @@ void main() {
 	rvec4 y_start = rvec4(
 		q1_start,
 		q2_start,
-		0.5,
-		-0.5
+		v1_start, // 0.5,
+		v2_start  // -0.5
 	);
+
+	// This one is drippy
+	// rvec4 y_start = rvec4(
+	// 	q1_start * 1.0,
+	// 	q1_start * 1.0,
+	// 	q2_start * v1_start,
+	// 	q2_start * v2_start
+	// );
+
+	// rvec4 y_start = rvec4(
+	// 	q1_start * 1.0,
+	// 	q2_start * 1.0,
+	// 	q2_start * v1_start,
+	// 	q2_start * v2_start
+	// );
 
 	uint status;
 	uint step_counter;
@@ -101,6 +118,13 @@ void main() {
 	real y2 = y1 + l2 * -rcos(q2);
 
 	float value = remap(float(y2), -2.0, 2.0, 0.0, 1.0);
+	// float value = remap(float(y1), -1.0, 1.0, 0.0, 1.0);
+	// float value = remap(float(y1 + y2), -3.0, 3.0, 0.0, 1.0);
+	// float value = remap(float(x2), -2.0, 2.0, 0.0, 1.0);
+	// float value = remap(float(q1), -2*3.41, 2*3.41, 0.0, 1.0); // for angles need cyclic colormap
+	// float value = remap(float(length(rvec2(x1, x2))), 0.0, sqrt(3), 0.0, 1.0);
+	// float value = remap(float(length(rvec2(x2, y2))), 0.0, 4.0, 0.0, 1.0);
+
 
 	fragColor = plasma(value);
 }
