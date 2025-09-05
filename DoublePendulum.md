@@ -25,7 +25,8 @@ $$ \nabla_p H(p, q) = \begin{pmatrix}\frac{p_{1}}{\ell_{1}^{2} m_{1} - \ell_{1}^
 
 ### Equivalent differential equation
 The following differential equation is equivalent, but not a hamiltonian system. I guess it being more simple makes it a better choice for numerical methods, that don't require a hamiltonian system, e.g. the explicit euler or `RK45`.
-$$ \begin{pmatrix} \dot q \\ \dot v \end{pmatrix} = \begin{pmatrix} v \\ M^{-1}(q) f(q, v) \end{pmatrix} $$ 
+$$ \begin{pmatrix} \dot q \\ \dot v \end{pmatrix} = \begin{pmatrix} v \\ M^{-1}(q) f(q, v) \end{pmatrix} $$
+
 where
 $$ f(q, v)
 = \ell_1 \ell_2 m_2 \sin(q_1 - q_2) \begin{pmatrix} -v_2^2 \\ v_1^2 \end{pmatrix} - \nabla U(q)
@@ -34,3 +35,5 @@ $$ f(q, v)
 Combined, we get
 $$ \begin{pmatrix} \dot q \\ \dot v \end{pmatrix}
 = \begin{pmatrix}v_{1}\\v_{2}\\\frac{- g \ell_{1} \left(m_{1} + m_{2}\right) \sin{\left(q_{1} \right)} - \ell_{1} \ell_{2} m_{2} v_{2}^{2} \sin{\left(q_{1} - q_{2} \right)}}{\ell_{1}^{2} m_{1} - \ell_{1}^{2} m_{2} \cos^{2}{\left(q_{1} - q_{2} \right)} + \ell_{1}^{2} m_{2}} - \frac{\left(- g \ell_{2} m_{2} \sin{\left(q_{2} \right)} + \ell_{1} \ell_{2} m_{2} v_{1}^{2} \sin{\left(q_{1} - q_{2} \right)}\right) \cos{\left(q_{1} - q_{2} \right)}}{\ell_{1} \ell_{2} m_{1} - \ell_{1} \ell_{2} m_{2} \cos^{2}{\left(q_{1} - q_{2} \right)} + \ell_{1} \ell_{2} m_{2}}\\\frac{\left(m_{1} + m_{2}\right) \left(- g \ell_{2} m_{2} \sin{\left(q_{2} \right)} + \ell_{1} \ell_{2} m_{2} v_{1}^{2} \sin{\left(q_{1} - q_{2} \right)}\right)}{\ell_{2}^{2} m_{1} m_{2} - \ell_{2}^{2} m_{2}^{2} \cos^{2}{\left(q_{1} - q_{2} \right)} + \ell_{2}^{2} m_{2}^{2}} - \frac{\left(- g \ell_{1} \left(m_{1} + m_{2}\right) \sin{\left(q_{1} \right)} - \ell_{1} \ell_{2} m_{2} v_{2}^{2} \sin{\left(q_{1} - q_{2} \right)}\right) \cos{\left(q_{1} - q_{2} \right)}}{\ell_{1} \ell_{2} m_{1} - \ell_{1} \ell_{2} m_{2} \cos^{2}{\left(q_{1} - q_{2} \right)} + \ell_{1} \ell_{2} m_{2}}\end{pmatrix} $$
+
+*All formulas here are calculated using `sympy`. With helper variables it would probably be much easier to read.*
