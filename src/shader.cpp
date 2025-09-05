@@ -7,8 +7,6 @@ using namespace vec;
 
 Shader::Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath, bool compileAndLink, bool clean) {
 
-    std::cout << "Hello from Shader Constructor" << std::endl;
-
     // this->defines = defines;
     vertexShaderSource = Shader::loadShaderSourceFromPath(vertexShaderSourcePath);
     fragmentShaderSource = Shader::loadShaderSourceFromPath(fragmentShaderSourcePath);
