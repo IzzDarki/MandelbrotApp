@@ -1,8 +1,12 @@
 #ifndef DOUBLE_PENDULUM_RHS_INCLUDED
 #define DOUBLE_PENDULUM_RHS_INCLUDED
 
+#define D 4
+#include "real.glsl"
+
 // Double Pendulum Parameters
 const real t0 = 0.0;
+uniform float t_end;
 uniform float g;
 uniform float l1;
 uniform float l2;
@@ -63,5 +67,8 @@ rvec2 rhs_2(rvec4 y) {
 		(m1 + m2)*(-g*l2*m2*rsin(q2) + l1*l2*m2*rpow(v1, 2)*rsin(q1 - q2))/(rpow(l2, 2)*m1*m2 - rpow(l2, 2)*rpow(m2, 2)*rpow(rcos(q1 - q2), 2) + rpow(l2, 2)*rpow(m2, 2)) - (-g*l1*(m1 + m2)*rsin(q1) - l1*l2*m2*rpow(v2, 2)*rsin(q1 - q2))*rcos(q1 - q2)/(l1*l2*m1 - l1*l2*m2*rpow(rcos(q1 - q2), 2) + l1*l2*m2)
 	);
 }
+
+// Not using *_arr method (otherwise would need to provide rhs_arr)
+#define RK45_DISABLE_ARR_METHODS
 
 #endif

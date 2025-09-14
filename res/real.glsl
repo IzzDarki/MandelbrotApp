@@ -99,4 +99,25 @@
 	#define rpow(x, y) pow((x), (y))
 #endif
 
+#endif // include guard
+
+
+
+#ifndef REAL_DIMENSION_DEFINED // second include guard (allows to define dimension later)
+
+#ifdef D
+	#if D == 1
+		#define rvecd real
+	#elif D == 2
+		#define rvecd rvec2
+	#elif D == 3
+		#define rvecd rvec3
+	#elif D == 4
+		#define rvecd rvec4
+	#else
+		#error "Dimension D must be 1, 2, 3 or 4"
+	#endif
+	#define REAL_DIMENSION_DEFINED
 #endif
+
+#endif // include guard 2

@@ -3,8 +3,7 @@
 uniform uvec2 windowSize;
 uniform double zoomScale;
 uniform dvec2 numberStart;
-uniform uint maxIterations;
-uniform float t_end;
+
 uniform float v1_start;
 uniform float v2_start;
 
@@ -12,8 +11,6 @@ uniform float v2_start;
 #include "colormaps.glsl"
 #include "double_pendulum_rhs.glsl"
 #include "rk45.glsl"
-
-// uniform uint colorAccuracy = 10; // used by some flowColor methods: 1 means every index results in a colorStep of (1.0 / 1) but there are only (6 * 1) colors. 255 means, that every index results in a much smaller colorStep of (1.0 / 255) but there are (255 * 6) colors. 
 
 out vec4 fragColor;
 
@@ -77,7 +74,7 @@ void main() {
 		v2_start  // -0.5
 	);
 
-	// This one is drippy
+	// This one is drippy (especially when playing with parameters)
 	// rvec4 y_start = rvec4(
 	// 	q1_start * 1.0,
 	// 	q1_start * 1.0,
@@ -95,7 +92,7 @@ void main() {
 	uint status;
 	uint step_counter;
 	uint same_step_counter;
-	rvec4 y = rk45(y_start, status, step_counter, same_step_counter);
+	rvec4 y = rk45(y_start, t0, t_end, status, step_counter, same_step_counter);
 	if (status == ERR_TOO_MANY_STEPS) {
 		fragColor = vec4(1.0, 0.7, 0.0, 1.0); // orange
 		return;
@@ -117,14 +114,15 @@ void main() {
 	real x2 = x1 + l2 * rsin(q2);
 	real y2 = y1 + l2 * -rcos(q2);
 
-	float value = remap(float(y2), -2.0, 2.0, 0.0, 1.0);
+	float value = remap(float(y2), -(l1+l2), l1+l2, 0.0, 1.0);
 	// float value = remap(float(y1), -1.0, 1.0, 0.0, 1.0);
 	// float value = remap(float(y1 + y2), -3.0, 3.0, 0.0, 1.0);
 	// float value = remap(float(x2), -2.0, 2.0, 0.0, 1.0);
 	// float value = remap(float(q1), -2*3.41, 2*3.41, 0.0, 1.0); // for angles need cyclic colormap
 	// float value = remap(float(length(rvec2(x1, x2))), 0.0, sqrt(3), 0.0, 1.0);
 	// float value = remap(float(length(rvec2(x2, y2))), 0.0, 4.0, 0.0, 1.0);
+	// float value = remap(float(step_counter), 0.0, float(MAX_STEPS / 3.0), 0.0, 1.0);
 
 
-	fragColor = plasma(value);
+	fragColor = viridis(value);
 }
