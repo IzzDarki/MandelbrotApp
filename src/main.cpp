@@ -25,6 +25,7 @@ static int windowHeight = 720;
 static long double zoomScale = 3.5L; //1.7e-10;
 static long double realPartStart = -2.5L; //-0.04144230656908739;
 static long double imagPartStart = -1.75L; //1.48014290228390966;
+static unsigned int vertexArray = 0; // VAO 
 static bool zoomingIn = false; // e.g. if Ctrl + Plus is pressed, this is true
 static bool zoomingOut = false;
 static constexpr long double ZOOM_STEP = 1.1L; // single zoom step (multiplicative)
@@ -40,14 +41,20 @@ static float atolExponent = -5.0f; // corresponds to 1e-5
 static float rtolExponent = -5.0f; // corresponds to 1e-5
 
 // Double Pendulum Parameters
-static float simulationEndTime = 3.0f;
-static float v1Start = 0.0f;
-static float v2Start = 0.0f;
-static float weightConstant = 9.81f;
-static float length1 = 1.0f;
-static float length2 = 1.0f;
-static float mass1 = 1.0f;
-static float mass2 = 1.0f;
+// static float simulationEndTime = 3.0f;
+// static float v1Start = 0.0f;
+// static float v2Start = 0.0f;
+// static float weightConstant = 9.81f;
+// static float length1 = 1.0f;
+// static float length2 = 1.0f;
+// static float mass1 = 1.0f;
+// static float mass2 = 1.0f;
+
+// N-Body Problem Parameters
+constexpr const uint N = 3u;
+constexpr const uint D = 3u;
+static float simulationEndTime = 0.0f;
+static float masses[N] = { 1.0f, 0.9f, 1.2f };
 
 static bool ImGuiEnabled = true;
 
@@ -180,30 +187,44 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				// }
 				// ImGui::NewLine();
 
-				ImGui::Text("Double Pendulum Controls: ");
-				if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0, 10.0)) {
+				// ImGui::Text("Double Pendulum Controls: ");
+				// if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0, 10.0)) {
+				// 	shader.setFloat("t_end", simulationEndTime);
+				// }
+				// if (ImGui::SliderFloat("v1-Start", &v1Start, -1.0f, +1.0f)) {
+				// 	shader.setFloat("v1_start", v1Start);
+				// }
+				// if (ImGui::SliderFloat("v2-Start", &v2Start, -1.0f, +1.0f)) {
+				// 	shader.setFloat("v2_start", v2Start);
+				// }
+				// if (ImGui::SliderFloat("g", &weightConstant, -5.0, 40.0)) {
+				// 	shader.setFloat("g", weightConstant);
+				// }
+				// if (ImGui::SliderFloat("l1", &length1, -1.0, 8.0)) {
+				// 	shader.setFloat("l1", length1);
+				// }
+				// if (ImGui::SliderFloat("l2", &length2, -1.0, 8.0)) {
+				// 	shader.setFloat("l2", length2);
+				// }
+				// if (ImGui::SliderFloat("m1", &mass1, -2.0, 8.0)) {
+				// 	shader.setFloat("m1", mass1);
+				// }
+				// if (ImGui::SliderFloat("m2", &mass2, -2.0, 8.0)) {
+				// 	shader.setFloat("m2", mass2);
+				// }
+
+				ImGui::Text("N-Body Problem Controls: ");
+				if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0f, 0.1f)) {
 					shader.setFloat("t_end", simulationEndTime);
 				}
-				if (ImGui::SliderFloat("v1-Start", &v1Start, -1.0f, +1.0f)) {
-					shader.setFloat("v1_start", v1Start);
+				if (ImGui::SliderFloat("mass1", &masses[0], 0.0f, +5.0f)) {
+					shader.setFloatArray("m", masses, N);
 				}
-				if (ImGui::SliderFloat("v2-Start", &v2Start, -1.0f, +1.0f)) {
-					shader.setFloat("v2_start", v2Start);
+				if (ImGui::SliderFloat("mass2", &masses[1], 0.0f, +5.0f)) {
+					shader.setFloatArray("m", masses, N);
 				}
-				if (ImGui::SliderFloat("g", &weightConstant, -5.0, 40.0)) {
-					shader.setFloat("g", weightConstant);
-				}
-				if (ImGui::SliderFloat("l1", &length1, -1.0, 8.0)) {
-					shader.setFloat("l1", length1);
-				}
-				if (ImGui::SliderFloat("l2", &length2, -1.0, 8.0)) {
-					shader.setFloat("l2", length2);
-				}
-				if (ImGui::SliderFloat("m1", &mass1, -2.0, 8.0)) {
-					shader.setFloat("m1", mass1);
-				}
-				if (ImGui::SliderFloat("m2", &mass2, -2.0, 8.0)) {
-					shader.setFloat("m2", mass2);
+				if (ImGui::SliderFloat("mass3", &masses[2], 0.0f, +5.0f)) {
+					shader.setFloatArray("m", masses, N);
 				}
 
 				// Status info
@@ -457,14 +478,19 @@ static void initUniformVariables() {
 	shader.setUInt("MAX_STEPS", static_cast<uint>(maxIterations));
 	shader.setFloat("atol", std::pow(10.0f, atolExponent));
 	shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
+
+	// shader.setFloat("t_end", simulationEndTime);
+	// shader.setFloat("v1_start", v1Start);
+	// shader.setFloat("v2_start", v2Start);
+	// shader.setFloat("g", weightConstant);
+	// shader.setFloat("l1", length1);
+	// shader.setFloat("l2", length2);
+	// shader.setFloat("m1", mass1);
+	// shader.setFloat("m2", mass2);
+
 	shader.setFloat("t_end", simulationEndTime);
-	shader.setFloat("v1_start", v1Start);
-	shader.setFloat("v2_start", v2Start);
-	shader.setFloat("g", weightConstant);
-	shader.setFloat("l1", length1);
-	shader.setFloat("l2", length2);
-	shader.setFloat("m1", mass1);
-	shader.setFloat("m2", mass2);
+	// shader.setFloat("g", gravitationalConstant);
+	shader.setFloatArray("m", masses, N);
 }
 
 
@@ -482,7 +508,8 @@ int main()
 
 	// Shader
 	//shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
-	shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false); // Compile and link shader, but keep sources, ...
+	// shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false); // Compile and link shader, but keep sources, ...
+	shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_n_body_problem.glsl", false, false); // Compile and link shader, but keep sources, ...
 	// define default values 
 	//shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
 	//shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
@@ -512,7 +539,7 @@ int main()
 	glGenBuffers(1, &elementBuffer);
 
 	// vertex array object
-	unsigned int vertexArray;
+	// unsigned int vertexArray;
 	glGenVertexArrays(1, &vertexArray);
 
 	// init vertex array, vertex buffer and element buffer together

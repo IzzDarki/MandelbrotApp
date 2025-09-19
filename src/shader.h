@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <variant>
 #include <tuple>
+#include <vector>
 
 #include <glad/glad.h>
 
@@ -66,24 +67,16 @@ public:
     using vec4double = vec::vec4double;
     
     using uniform_t = std::variant<
-        int,
-        vec2int,
-        vec3int,
-        vec4int,
-        uint,
-        vec2uint,
-        vec3uint,
-        vec4uint,
-        float,
-        vec2,
-        vec3,
-        vec4,
-        double,
-        vec2double,
-        vec3double,
-        vec4double>;
+        int, vec2int, vec3int, vec4int,
+        uint, vec2uint, vec3uint, vec4uint,
+        float, vec2, vec3, vec4,
+        double, vec2double, vec3double, vec4double,
+        std::vector<int>, std::vector<vec2int>, std::vector<vec3int>, std::vector<vec4int>,
+        std::vector<uint>, std::vector<vec2uint>, std::vector<vec3uint>, std::vector<vec4uint>,
+        std::vector<float>, std::vector<vec2>, std::vector<vec3>, std::vector<vec4>,
 
-    static constexpr auto MANDEL_FLOW_COLOR_TYPE = "FLOW_COLOR_TYPE";
+        std::vector<double>, std::vector<vec2double>, std::vector<vec3double>, std::vector<vec4double>
+        >;
 
 public:
     Shader() = default;
@@ -127,6 +120,22 @@ public:
     void setVec2Double(const std::string& name, vec2double val);
     void setVec3Double(const std::string& name, vec3double val);
     void setVec4Double(const std::string& name, vec4double val);
+    void setIntArray(const std::string& name, const int* vals, uint count);
+    void setVec2IntArray(const std::string& name, const vec2int* vals, uint count);
+    void setVec3IntArray(const std::string& name, const vec3int* vals, uint count);
+    void setVec4IntArray(const std::string& name, const vec4int* vals, uint count);
+    void setUIntArray(const std::string& name, const uint* vals, uint count);
+    void setVec2UIntArray(const std::string& name, const vec2uint* vals, uint count);
+    void setVec3UIntArray(const std::string& name, const vec3uint* vals, uint count);
+    void setVec4UIntArray(const std::string& name, const vec4uint* vals, uint count);
+    void setFloatArray(const std::string& name, const float* vals, uint count);
+    void setVec2Array(const std::string& name, const vec2* vals, uint count);
+    void setVec3Array(const std::string& name, const vec3* vals, uint count);
+    void setVec4Array(const std::string& name, const vec4* vals, uint count);
+    void setDoubleArray(const std::string& name, const double* vals, uint count);
+    void setVec2DoubleArray(const std::string& name, const vec2double* vals, uint count);
+    void setVec3DoubleArray(const std::string& name, const vec3double* vals, uint count);
+    void setVec4DoubleArray(const std::string& name, const vec4double* vals, uint count);
 
     auto getInt(const std::string& name) -> int;
     auto getVec2Int(const std::string& name) -> vec2int;
@@ -144,6 +153,22 @@ public:
     auto getVec2Double(const std::string& name) -> vec2double;
     auto getVec3Double(const std::string& name) -> vec3double;
     auto getVec4Double(const std::string& name) -> vec4double;
+    auto getIntArray(const std::string& name) -> const std::vector<int>&;
+    auto getVec2IntArray(const std::string& name) -> const std::vector<vec2int>&;
+    auto getVec3IntArray(const std::string& name) -> const std::vector<vec3int>&;
+    auto getVec4IntArray(const std::string& name) -> const std::vector<vec4int>&;
+    auto getUIntArray(const std::string& name) -> const std::vector<uint>&;
+    auto getVec2UIntArray(const std::string& name) -> const std::vector<vec2uint>&;
+    auto getVec3UIntArray(const std::string& name) -> const std::vector<vec3uint>&;
+    auto getVec4UIntArray(const std::string& name) -> const std::vector<vec4uint>&;
+    auto getFloatArray(const std::string& name) -> const std::vector<float>&;
+    auto getVec2Array(const std::string& name) -> const std::vector<vec2>&;
+    auto getVec3Array(const std::string& name) -> const std::vector<vec3>&;
+    auto getVec4Array(const std::string& name) -> const std::vector<vec4>&;
+    auto getDoubleArray(const std::string& name) -> const std::vector<double>&;
+    auto getVec2DoubleArray(const std::string& name) -> const std::vector<vec2double>&;
+    auto getVec3DoubleArray(const std::string& name) -> const std::vector<vec3double>&;
+    auto getVec4DoubleArray(const std::string& name) -> const std::vector<vec4double>&;
 
     /**
      * When later compiling the the shaders, every occurrence of `name` in the all the shader sources will be replaced by `value`

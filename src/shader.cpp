@@ -56,7 +56,7 @@ void Shader::use() const {
 }
 
 
-// * set helpers
+// * Uniform setter helpers
 inline void setIntHelper(unsigned int shaderProgram, const std::string& name, int val) { glUniform1i(glGetUniformLocation(shaderProgram, name.c_str()), val); }
 inline void setVec2IntHelper(unsigned int shaderProgram, const std::string& name, vec2int val) { glUniform2i(glGetUniformLocation(shaderProgram, name.c_str()), getX(val), getY(val)); }
 inline void setVec3IntHelper(unsigned int shaderProgram, const std::string& name, vec3int val) { glUniform3i(glGetUniformLocation(shaderProgram, name.c_str()), getX(val), getY(val), getZ(val)); }
@@ -74,6 +74,72 @@ inline void setVec2DoubleHelper(unsigned int shaderProgram, const std::string& n
 inline void setVec3DoubleHelper(unsigned int shaderProgram, const std::string& name, vec3double val) { glUniform3d(glGetUniformLocation(shaderProgram, name.c_str()), getX(val), getY(val), getZ(val)); }
 inline void setVec4DoubleHelper(unsigned int shaderProgram, const std::string& name, vec4double val) { glUniform4d(glGetUniformLocation(shaderProgram, name.c_str()), getX(val), getY(val), getZ(val), getW(val)); }
 
+inline void setIntArrayHelper(unsigned int shaderProgram, const std::string& name, const int* vals, uint count) {
+    glUniform1iv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec2IntArrayHelper(unsigned int shaderProgram, const std::string& name, const int* vals, uint count) {
+    glUniform2iv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec3IntArrayHelper(unsigned int shaderProgram, const std::string& name, const int* vals, uint count) {
+    glUniform3iv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec4IntArrayHelper(unsigned int shaderProgram, const std::string& name, const int* vals, uint count) {
+    glUniform4iv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setUIntArrayHelper(unsigned int shaderProgram, const std::string& name, const unsigned int* vals, uint count) {
+    glUniform1uiv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec2UIntArrayHelper(unsigned int shaderProgram, const std::string& name, const unsigned int* vals, uint count) {
+    glUniform2uiv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec3UIntArrayHelper(unsigned int shaderProgram, const std::string& name, const unsigned int* vals, uint count) {
+    glUniform3uiv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec4UIntArrayHelper(unsigned int shaderProgram, const std::string& name, const unsigned int* vals, uint count) {
+    glUniform4uiv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setFloatArrayHelper(unsigned int shaderProgram, const std::string& name, const float* vals, uint count) {
+    glUniform1fv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec2ArrayHelper(unsigned int shaderProgram, const std::string& name, const float* vals, uint count) {
+    glUniform2fv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec3ArrayHelper(unsigned int shaderProgram, const std::string& name, const float* vals, uint count) {
+    glUniform3fv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec4ArrayHelper(unsigned int shaderProgram, const std::string& name, const float* vals, uint count) {
+    glUniform4fv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setDoubleArrayHelper(unsigned int shaderProgram, const std::string& name, const double* vals, uint count) {
+    glUniform1dv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec2DoubleArrayHelper(unsigned int shaderProgram, const std::string& name, const double* vals, uint count) {
+    glUniform2dv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec3DoubleArrayHelper(unsigned int shaderProgram, const std::string& name, const double* vals, uint count) {
+    glUniform3dv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+inline void setVec4DoubleArrayHelper(unsigned int shaderProgram, const std::string& name, const double* vals, uint count) {
+    glUniform4dv(glGetUniformLocation(shaderProgram, name.c_str()), static_cast<GLsizei>(count), vals);
+}
+
+
+// * Uniform Setters
 
 void Shader::setInt(const std::string& name, int val) {
     setIntHelper(shaderProgram, name, val);
@@ -155,6 +221,201 @@ void Shader::setVec4Double(const std::string& name, vec4double val) {
     uniforms[name] = val;
 }
 
+void Shader::setIntArray(const std::string& name, const int* vals, uint count) {
+    uniforms[name] = std::vector<int>(vals, vals+count);
+    const auto& vector = this->getIntArray(name);
+    setIntArrayHelper(shaderProgram, name, vector.data(), count);
+}
+
+void Shader::setVec2IntArray(const std::string& name, const vec2int* vals, uint count) {
+    uniforms[name] = std::vector<vec2int>(vals, vals+count);
+    const auto& vector = this->getVec2IntArray(name);
+
+    std::vector<int> flat;
+    flat.reserve(count * 2);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+    }
+    setVec2IntArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setVec3IntArray(const std::string& name, const vec3int* vals, uint count) {
+    uniforms[name] = std::vector<vec3int>(vals, vals+count);
+    const auto& vector = this->getVec3IntArray(name);
+
+    std::vector<int> flat;
+    flat.reserve(count * 3);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+        flat.push_back(std::get<2>(vec));
+    }
+    setVec3IntArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setVec4IntArray(const std::string& name, const vec4int* vals, uint count) {
+    uniforms[name] = std::vector<vec4int>(vals, vals+count);
+    const auto& vector = this->getVec4IntArray(name);
+
+    std::vector<int> flat;
+    flat.reserve(count * 4);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+        flat.push_back(std::get<2>(vec));
+        flat.push_back(std::get<3>(vec));
+    }
+    setVec4IntArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setUIntArray(const std::string& name, const uint* vals, uint count) {
+    uniforms[name] = std::vector<uint>(vals, vals+count);
+    const auto& vector = this->getUIntArray(name);
+    setUIntArrayHelper(shaderProgram, name, vector.data(), count);
+}
+
+void Shader::setVec2UIntArray(const std::string& name, const vec2uint* vals, uint count) {
+    uniforms[name] = std::vector<vec2uint>(vals, vals+count);
+    const auto& vector = this->getVec2UIntArray(name);
+
+    std::vector<uint> flat;
+    flat.reserve(count * 2);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+    }
+    setVec2UIntArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setVec3UIntArray(const std::string& name, const vec3uint* vals, uint count) {
+    uniforms[name] = std::vector<vec3uint>(vals, vals+count);
+    const auto& vector = this->getVec3UIntArray(name);
+
+    std::vector<uint> flat;
+    flat.reserve(count * 3);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+        flat.push_back(std::get<2>(vec));
+    }
+    setVec3UIntArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setVec4UIntArray(const std::string& name, const vec4uint* vals, uint count) {
+    uniforms[name] = std::vector<vec4uint>(vals, vals+count);
+    const auto& vector = this->getVec4UIntArray(name);
+
+    std::vector<uint> flat;
+    flat.reserve(count * 4);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+        flat.push_back(std::get<2>(vec));
+        flat.push_back(std::get<3>(vec));
+    }
+    setVec4UIntArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setFloatArray(const std::string& name, const float* vals, uint count) {
+    uniforms[name] = std::vector<float>(vals, vals+count);
+    const auto& vector = this->getFloatArray(name);
+    setFloatArrayHelper(shaderProgram, name, vector.data(), count);
+}
+
+void Shader::setVec2Array(const std::string& name, const vec2* vals, uint count) {
+    uniforms[name] = std::vector<vec2>(vals, vals+count);
+    const auto& vector = this->getVec2Array(name);
+
+    std::vector<float> flat;
+    flat.reserve(count * 2);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+    }
+    setVec2ArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setVec3Array(const std::string& name, const vec3* vals, uint count) {
+    uniforms[name] = std::vector<vec3>(vals, vals+count);
+    const auto& vector = this->getVec3Array(name);
+
+    std::vector<float> flat;
+    flat.reserve(count * 3);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+        flat.push_back(std::get<2>(vec));
+    }
+    setVec3ArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setVec4Array(const std::string& name, const vec4* vals, uint count) {
+    uniforms[name] = std::vector<vec4>(vals, vals+count);
+    const auto& vector = this->getVec4Array(name);
+
+    std::vector<float> flat;
+    flat.reserve(count * 4);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+        flat.push_back(std::get<2>(vec));
+        flat.push_back(std::get<3>(vec));
+    }
+    setVec4ArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setDoubleArray(const std::string& name, const double* vals, uint count) {
+    uniforms[name] = std::vector<double>(vals, vals+count);
+    const auto& vector = this->getDoubleArray(name);
+    setDoubleArrayHelper(shaderProgram, name, vector.data(), count);
+}
+
+void Shader::setVec2DoubleArray(const std::string& name, const vec2double* vals, uint count) {
+    uniforms[name] = std::vector<vec2double>(vals, vals+count);
+    const auto& vector = this->getVec2DoubleArray(name);
+
+    std::vector<double> flat;
+    flat.reserve(count * 2);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+    }
+    setVec2DoubleArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setVec3DoubleArray(const std::string& name, const vec3double* vals, uint count) {
+    uniforms[name] = std::vector<vec3double>(vals, vals+count);
+    const auto& vector = this->getVec3DoubleArray(name);
+
+    std::vector<double> flat;
+    flat.reserve(count * 3);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+        flat.push_back(std::get<2>(vec));
+    }
+    setVec3DoubleArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+void Shader::setVec4DoubleArray(const std::string& name, const vec4double* vals, uint count) {
+    uniforms[name] = std::vector<vec4double>(vals, vals+count);
+    const auto& vector = this->getVec4DoubleArray(name);
+
+    std::vector<double> flat;
+    flat.reserve(count * 4);
+    for (auto const& vec : vector) {
+        flat.push_back(std::get<0>(vec));
+        flat.push_back(std::get<1>(vec));
+        flat.push_back(std::get<2>(vec));
+        flat.push_back(std::get<3>(vec));
+    }
+    setVec4DoubleArrayHelper(shaderProgram, name, flat.data(), count);
+}
+
+
+// * Uniform Getters
+
 auto Shader::getInt(const std::string& name) -> int {
     return std::get<int>(uniforms[name]);
 }
@@ -218,6 +479,73 @@ auto Shader::getVec3Double(const std::string& name) -> vec3double {
 auto Shader::getVec4Double(const std::string& name) -> vec4double {
     return std::get<vec4double>(uniforms[name]);
 }
+
+auto Shader::getIntArray(const std::string& name) -> const std::vector<int>& {
+    return std::get<std::vector<int>>(uniforms.at(name));
+}
+
+auto Shader::getVec2IntArray(const std::string& name) -> const std::vector<vec2int>& {
+    return std::get<std::vector<vec2int>>(uniforms.at(name));
+}
+
+auto Shader::getVec3IntArray(const std::string& name) -> const std::vector<vec3int>& {
+    return std::get<std::vector<vec3int>>(uniforms.at(name));
+}
+
+auto Shader::getVec4IntArray(const std::string& name) -> const std::vector<vec4int>& {
+    return std::get<std::vector<vec4int>>(uniforms.at(name));
+}
+
+auto Shader::getUIntArray(const std::string& name) -> const std::vector<uint>& {
+    return std::get<std::vector<uint>>(uniforms.at(name));
+}
+
+auto Shader::getVec2UIntArray(const std::string& name) -> const std::vector<vec2uint>& {
+    return std::get<std::vector<vec2uint>>(uniforms.at(name));
+}
+
+auto Shader::getVec3UIntArray(const std::string& name) -> const std::vector<vec3uint>& {
+    return std::get<std::vector<vec3uint>>(uniforms.at(name));
+}
+
+auto Shader::getVec4UIntArray(const std::string& name) -> const std::vector<vec4uint>& {
+    return std::get<std::vector<vec4uint>>(uniforms.at(name));
+}
+
+auto Shader::getFloatArray(const std::string& name) -> const std::vector<float>& {
+    return std::get<std::vector<float>>(uniforms.at(name));
+}
+
+auto Shader::getVec2Array(const std::string& name) -> const std::vector<vec2>& {
+    return std::get<std::vector<vec2>>(uniforms.at(name));
+}
+
+auto Shader::getVec3Array(const std::string& name) -> const std::vector<vec3>& {
+    return std::get<std::vector<vec3>>(uniforms.at(name));
+}
+
+auto Shader::getVec4Array(const std::string& name) -> const std::vector<vec4>& {
+    return std::get<std::vector<vec4>>(uniforms.at(name));
+}
+
+auto Shader::getDoubleArray(const std::string& name) -> const std::vector<double>& {
+    return std::get<std::vector<double>>(uniforms.at(name));
+}
+
+auto Shader::getVec2DoubleArray(const std::string& name) -> const std::vector<vec2double>& {
+    return std::get<std::vector<vec2double>>(uniforms.at(name));
+}
+
+auto Shader::getVec3DoubleArray(const std::string& name) -> const std::vector<vec3double>& {
+    return std::get<std::vector<vec3double>>(uniforms.at(name));
+}
+
+auto Shader::getVec4DoubleArray(const std::string& name) -> const std::vector<vec4double>& {
+    return std::get<std::vector<vec4double>>(uniforms.at(name));
+}
+
+
+// * Other Stuff
 
 void Shader::recompile() {
     deleteFragmentShader();

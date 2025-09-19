@@ -68,7 +68,4 @@ rvec2 rhs_2(rvec4 y) {
 	);
 }
 
-// Not using *_arr method (otherwise would need to provide rhs_arr)
-#define RK45_DISABLE_ARR_METHODS
-
 #endif

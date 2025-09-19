@@ -5,9 +5,9 @@
 
 // A Problem definition must be included before this and must contain the following
 //  #define D ... (defining dimension of vectors rvecd)
-//  #define N ... (defining length of arrays used)      (only needed when using rk45_arr, otherwise use #define RK45_DISABLE_ARR_METHODS)
+//  #define M ... (defining length of arrays used)      (only needed when using rk45_arr, otherwise use #define RK45_DISABLE_ARR_METHODS)
 // - rvecd rhs(rvecd y0) { return ... }                 (only when using rk45, otherwise use #define RK45_DISABLE_VEC_METHODS)
-// - void rhs_arr(rvecd y0[N], out rvecd y1[N]) { ... } (only when using rk45_arr, otherwise use #define RK45_DISABLE_ARR_METHODS)
+// - void rhs_arr(rvecd y0[M], out rvecd y1[M]) { ... } (only when using rk45_arr, otherwise use #define RK45_DISABLE_ARR_METHODS)
 
 
 // I trust the glsl compilation to optimize const float operations away
@@ -32,7 +32,7 @@ uniform float atol; // must be non-zero
 // const uint MAX_STEPS = 10000u;
 uniform uint MAX_STEPS;
 const uint MAX_SAME_STEPS = 22u;
-const real MIN_TAU = 1e-5;
+const real MIN_TAU = 1e-12;
 
 const uint SUCCESS = 0u;
 const uint ERR_TOO_MANY_STEPS = 1u;
@@ -131,74 +131,75 @@ rvecd rk45(rvecd y0, real t0, real t_end, out uint error_code, out uint step_cou
 #endif //  #ifndef RK45_DISABLE_VEC_METHODS
 
 
-// * _arr methods (taking an N-element-array of D-dimensional vectors)
+// * _arr methods (taking an M-element-array of D-dimensional vectors)
 #ifndef RK45_DISABLE_ARR_METHODS
 
 // Same as above but for arrays of vectors
-real scaled_norm_arr(rvecd vector[N], rvecd scale_vec[N]) {
+// I believe GLSL compiler will unroll loops and nested loops, since M is known at compile time
+real scaled_norm_arr(rvecd vector[M], rvecd scale_vec[M]) {
     real sum_of_squares = 0.0;
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         rvecd temp = vector[i] / scale_vec[i];
         sum_of_squares += dot(temp, temp);
     }
-    return sqrt(sum_of_squares / (N*D)); // 2-norm
+    return sqrt(sum_of_squares / (M*D)); // 2-norm
 }
 
-void rk45_step_arr(rvecd y0[N], inout real tau, out bool isAccepted, out rvecd y1[N]) {
-    rvecd Y1[N];
-    rvecd Z1[N];
-    rvecd Y2[N];
-    rvecd Z2[N];
-    rvecd Y3[N];
-    rvecd Z3[N];
-    rvecd Y4[N];
-    rvecd Z4[N];
-    rvecd Y5[N];
-    rvecd Z5[N];
-    rvecd Y6[N];
-    rvecd Z6[N];
-    rvecd err_vec[N];
+void rk45_step_arr(rvecd y0[M], inout real tau, out bool isAccepted, out rvecd y1[M]) {
+    rvecd Y1[M];
+    rvecd Z1[M];
+    rvecd Y2[M];
+    rvecd Z2[M];
+    rvecd Y3[M];
+    rvecd Z3[M];
+    rvecd Y4[M];
+    rvecd Z4[M];
+    rvecd Y5[M];
+    rvecd Z5[M];
+    rvecd Y6[M];
+    rvecd Z6[M];
+    rvecd err_vec[M];
 
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         Y1[i] = y0[i];
     }
     rhs_arr(Y1, Z1); // set Z1
 
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         Y2[i] = y0[i] + tau*(a21*Z1[i]);
     }
     rhs_arr(Y2, Z2); // set Z2
 
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         Y3[i] = y0[i] + tau*(a31*Z1[i] + a32*Z2[i]);
     }
     rhs_arr(Y3, Z3); // set Z3
 
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         Y4[i] = y0[i] + tau*(a41*Z1[i] + a42*Z2[i] + a43*Z3[i]);
     }
     rhs_arr(Y4, Z4); // set Z4
 
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         Y5[i] = y0[i] + tau*(a51*Z1[i] + a52*Z2[i] + a53*Z3[i] + a54*Z4[i]);
         
     }
     rhs_arr(Y5, Z5); // set Z5
 
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         Y6[i] = y0[i] + tau*(a61*Z1[i] + a62*Z2[i] + a63*Z3[i] + a64*Z4[i] + a65*Z5[i]);
     }
     rhs_arr(Y6, Z6); // set Z6
 
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         y1[i] = y0[i] + tau*(b1*Z1[i] + b2*Z2[i] + b3*Z3[i] + b4*Z4[i] + b5*Z5[i] + b6*Z6[i]);
         err_vec[i] = tau*((b1 - b1_)*Z1[i] + (b2 - b2_)*Z2[i] + (b3 - b3_)*Z3[i] + (b4 - b4_)*Z4[i] + (b5 - b5_)*Z5[i] + (b6 - b6_)*Z6[i]);
     }
 
 
     // Error estimation and Calculation of optimal tau
-    rvecd scale_vec[N];
-    for (int i = 0; i < N; ++i) {
+    rvecd scale_vec[M];
+    for (int i = 0; i < M; ++i) {
         scale_vec[i] = rvecd(atol) + max(abs(y0[i]), abs(y1[i]))*rvecd(rtol);
     }
     real err = scaled_norm_arr(err_vec, scale_vec);
@@ -206,7 +207,7 @@ void rk45_step_arr(rvecd y0[N], inout real tau, out bool isAccepted, out rvecd y
 
     if (err >= 1.0) {
         isAccepted = false;
-        for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < M; ++i) {
             y1[i] = y0[i]; // output y0
             return;
         }
@@ -216,14 +217,14 @@ void rk45_step_arr(rvecd y0[N], inout real tau, out bool isAccepted, out rvecd y
     // y1 is already set
 }
 
-void rk45_arr(rvecd y0[N], real t0, real t_end, out uint error_code, out uint step_counter, out uint same_step_counter, out rvecd y[N]) {
+void rk45_arr(rvecd y0[M], real t0, real t_end, out uint error_code, out uint step_counter, out uint same_step_counter, out rvecd y[M]) {
     // Guess initial step size (according to ChatGPT)
-    rvecd z0[N];
-    rvecd scale_vec_y0[N];
-    rvecd scale_vec_z0[N];
+    rvecd z0[M];
+    rvecd scale_vec_y0[M];
+    rvecd scale_vec_z0[M];
 
     rhs_arr(y0, z0); // set z0
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         scale_vec_y0[i] = rvecd(atol) + abs(y0[i])*rvecd(rtol);
         scale_vec_z0[i] = rvecd(atol) + abs(z0[i])*rvecd(rtol);
     }
@@ -235,27 +236,27 @@ void rk45_arr(rvecd y0[N], real t0, real t_end, out uint error_code, out uint st
     step_counter = 0;
     same_step_counter = 0;
     real t = t0;
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < M; ++i) {
         y[i] = y0[i];
     }
     while(t < t_end - 1e-9) { // small tolerance to rounding errors
         if (step_counter >= MAX_STEPS) {
             error_code = ERR_TOO_MANY_STEPS;
-            for (int i = 0; i < N; ++i) {
+            for (int i = 0; i < M; ++i) {
                 y[i] = rvecd(0.0);
             }
             return;
         }
         if (same_step_counter >= MAX_SAME_STEPS) {
             error_code = ERR_TOO_MANY_SAME_STEPS;
-            for (int i = 0; i < N; ++i) {
+            for (int i = 0; i < M; ++i) {
                 y[i] = rvecd(0.0);
             }
             return;
         }
         if (tau < MIN_TAU && t + tau < t_end - 1e-9) { // tau too small and not close to end
             error_code = ERR_TAU_TOO_SMALL;
-            for (int i = 0; i < N; ++i) {
+            for (int i = 0; i < M; ++i) {
                 y[i] = rvecd(0.0);
             }
             return;

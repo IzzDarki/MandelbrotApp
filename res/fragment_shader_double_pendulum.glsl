@@ -10,6 +10,7 @@ uniform float v2_start;
 #include "real.glsl"
 #include "colormaps.glsl"
 #include "double_pendulum_rhs.glsl"
+#define RK45_DISABLE_ARR_METHODS // We only need vector methods (since 4 dimensions fit in one vector)
 #include "rk45.glsl"
 
 out vec4 fragColor;
@@ -96,7 +97,7 @@ void main() {
 	if (status == ERR_TOO_MANY_STEPS) {
 		fragColor = vec4(1.0, 0.7, 0.0, 1.0); // orange
 		return;
-	} else if (status == ERR_TOO_MANY_SAME_STEPS) { // did not reach end after maxIterations
+	} else if (status == ERR_TOO_MANY_SAME_STEPS) { // did not reach end after MAX_STEPS
 		fragColor = vec4(1.0, 0.0, 0.7, 1.0); // purple
 		return;
 	} else if (status == ERR_TAU_TOO_SMALL) {
