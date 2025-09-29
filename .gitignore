@@ -1,5 +1,4 @@
 /build
 imgui.ini
-saved_views.ini
-MandelbrotApp
-MandelbrotApp.exe
+bin-Debug/*
+bin-Release/*
