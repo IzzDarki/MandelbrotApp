@@ -13,6 +13,7 @@ add_executable(MandelbrotApp
     src/shader.cpp
     src/app_utility.cpp
     src/saved_view.cpp
+    src/screenshot.cpp
 )
 
 # optional: headers for IDE visibility
@@ -21,6 +22,7 @@ target_sources(MandelbrotApp PRIVATE
     src/app_utility.h
     src/ini_file.h
     src/saved_view.h
+    src/screenshot.h
 )
 
 # C++ standard
@@ -28,7 +30,10 @@ set_property(TARGET MandelbrotApp PROPERTY CXX_STANDARD 20)
 
 # -----------------------------------------------------------------------------
 # Target-scoped includes and defines (DO NOT use global include_directories / add_compile_definitions)
-target_include_directories(MandelbrotApp PRIVATE
+target_include_directories(MandelbrotApp
+  # PRIVATE # my own include paths
+    # nothing here
+  SYSTEM PRIVATE # library include paths (=> no warnings from them)
     ${CMAKE_SOURCE_DIR}/lib
     # ${CMAKE_SOURCE_DIR}/lib/GLAD/include
 )

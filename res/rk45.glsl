@@ -30,9 +30,11 @@ uniform float rtol;
 uniform float atol; // must be non-zero
 
 // const uint MAX_STEPS = 10000u;
+// const uint MAX_SAME_STEPS = 22u;
+// const real MIN_TAU = 1e-12;
 uniform uint MAX_STEPS;
-const uint MAX_SAME_STEPS = 22u;
-const real MIN_TAU = 1e-12;
+uniform uint MAX_SAME_STEPS;
+uniform float MIN_TAU;
 
 const uint SUCCESS = 0u;
 const uint ERR_TOO_MANY_STEPS = 1u;

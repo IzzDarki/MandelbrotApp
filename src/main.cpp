@@ -17,6 +17,7 @@
 #include "app_utility.h"
 #include "shader.h"
 #include "saved_view.h"
+#include "screenshot.h"
 
 static GLFWwindow* window;
 static Shader shader;
@@ -28,8 +29,12 @@ static long double imagPartStart = -1.75L; //1.48014290228390966;
 static unsigned int vertexArray = 0; // VAO 
 static bool zoomingIn = false; // e.g. if Ctrl + Plus is pressed, this is true
 static bool zoomingOut = false;
+static bool zoomingInSlow = false;
+static bool zoomingOutSlow = false;
 static constexpr long double ZOOM_STEP = 1.1L; // single zoom step (multiplicative)
+static constexpr long double ZOOM_STEP_SMALL = 1.01L;
 static constexpr double ZOOM_PER_SECOND = 3.0; // continuous zoom (multiplicative)
+static constexpr double SLOW_ZOOM_PER_SECOND = 1.3;
 
 static std::array<float, 25> lastFrameDeltas;
 static std::size_t lastFrameArrayIndex = 0;
@@ -37,24 +42,26 @@ static bool autoMaxIterations = false;
 
 // RK45 Paramters
 static int maxIterations = 10'000;
+static uint maxSameSteps = 30u;
+static float minStepSize = 1e-12f;
 static float atolExponent = -5.0f; // corresponds to 1e-5
 static float rtolExponent = -5.0f; // corresponds to 1e-5
 
 // Double Pendulum Parameters
-// static float simulationEndTime = 3.0f;
-// static float v1Start = 0.0f;
-// static float v2Start = 0.0f;
-// static float weightConstant = 9.81f;
-// static float length1 = 1.0f;
-// static float length2 = 1.0f;
-// static float mass1 = 1.0f;
-// static float mass2 = 1.0f;
+static float simulationEndTime = 3.0f;
+static float v1Start = 0.0f;
+static float v2Start = 0.0f;
+static float weightConstant = 9.81f;
+static float length1 = 1.0f;
+static float length2 = 1.0f;
+static float mass1 = 1.0f;
+static float mass2 = 1.0f;
 
 // N-Body Problem Parameters
-constexpr const uint N = 3u;
-constexpr const uint D = 3u;
-static float simulationEndTime = 0.0f;
-static float masses[N] = { 1.0f, 0.9f, 1.2f };
+// constexpr const uint N = 3u;
+// constexpr const uint D = 3u;
+// static float simulationEndTime = 0.0f;
+// static float masses[N] = { 1.0f, 0.9f, 1.2f };
 
 static bool ImGuiEnabled = true;
 
@@ -80,6 +87,13 @@ static int getMaxIterations() {
 			maxIterations = 4000;
 	}
 	return maxIterations;
+}
+
+static void stopContinuousZooming() {
+	zoomingIn = false;
+	zoomingOut = false;
+	zoomingInSlow = false;
+	zoomingOutSlow = false;
 }
 
 static float calcFPSAverage() {
@@ -187,45 +201,45 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				// }
 				// ImGui::NewLine();
 
-				// ImGui::Text("Double Pendulum Controls: ");
-				// if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0, 10.0)) {
-				// 	shader.setFloat("t_end", simulationEndTime);
-				// }
-				// if (ImGui::SliderFloat("v1-Start", &v1Start, -1.0f, +1.0f)) {
-				// 	shader.setFloat("v1_start", v1Start);
-				// }
-				// if (ImGui::SliderFloat("v2-Start", &v2Start, -1.0f, +1.0f)) {
-				// 	shader.setFloat("v2_start", v2Start);
-				// }
-				// if (ImGui::SliderFloat("g", &weightConstant, -5.0, 40.0)) {
-				// 	shader.setFloat("g", weightConstant);
-				// }
-				// if (ImGui::SliderFloat("l1", &length1, -1.0, 8.0)) {
-				// 	shader.setFloat("l1", length1);
-				// }
-				// if (ImGui::SliderFloat("l2", &length2, -1.0, 8.0)) {
-				// 	shader.setFloat("l2", length2);
-				// }
-				// if (ImGui::SliderFloat("m1", &mass1, -2.0, 8.0)) {
-				// 	shader.setFloat("m1", mass1);
-				// }
-				// if (ImGui::SliderFloat("m2", &mass2, -2.0, 8.0)) {
-				// 	shader.setFloat("m2", mass2);
-				// }
-
-				ImGui::Text("N-Body Problem Controls: ");
-				if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0f, 0.1f)) {
+				ImGui::Text("Double Pendulum Controls: ");
+				if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0, 10.0)) {
 					shader.setFloat("t_end", simulationEndTime);
 				}
-				if (ImGui::SliderFloat("mass1", &masses[0], 0.0f, +5.0f)) {
-					shader.setFloatArray("m", masses, N);
+				if (ImGui::SliderFloat("v1-Start", &v1Start, -1.0f, +1.0f)) {
+					shader.setFloat("v1_start", v1Start);
 				}
-				if (ImGui::SliderFloat("mass2", &masses[1], 0.0f, +5.0f)) {
-					shader.setFloatArray("m", masses, N);
+				if (ImGui::SliderFloat("v2-Start", &v2Start, -1.0f, +1.0f)) {
+					shader.setFloat("v2_start", v2Start);
 				}
-				if (ImGui::SliderFloat("mass3", &masses[2], 0.0f, +5.0f)) {
-					shader.setFloatArray("m", masses, N);
+				if (ImGui::SliderFloat("g", &weightConstant, -5.0, 40.0)) {
+					shader.setFloat("g", weightConstant);
 				}
+				if (ImGui::SliderFloat("l1", &length1, -1.0, 8.0)) {
+					shader.setFloat("l1", length1);
+				}
+				if (ImGui::SliderFloat("l2", &length2, -1.0, 8.0)) {
+					shader.setFloat("l2", length2);
+				}
+				if (ImGui::SliderFloat("m1", &mass1, -2.0, 8.0)) {
+					shader.setFloat("m1", mass1);
+				}
+				if (ImGui::SliderFloat("m2", &mass2, -2.0, 8.0)) {
+					shader.setFloat("m2", mass2);
+				}
+
+				// ImGui::Text("N-Body Problem Controls: ");
+				// if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0f, 0.1f)) {
+				// 	shader.setFloat("t_end", simulationEndTime);
+				// }
+				// if (ImGui::SliderFloat("mass1", &masses[0], 0.0f, +5.0f)) {
+				// 	shader.setFloatArray("m", masses, N);
+				// }
+				// if (ImGui::SliderFloat("mass2", &masses[1], 0.0f, +5.0f)) {
+				// 	shader.setFloatArray("m", masses, N);
+				// }
+				// if (ImGui::SliderFloat("mass3", &masses[2], 0.0f, +5.0f)) {
+				// 	shader.setFloatArray("m", masses, N);
+				// }
 
 				// Status info
 				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -281,6 +295,44 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				}
 				ImGui::EndTabItem();
 			}
+			if (ImGui::BeginTabItem("Screenshots")) {
+				static char screenshotFilename[128] = "screenshot.png";
+				static int captureWidth  = 1920;
+				static int captureHeight = 1080;
+
+				ImGui::InputText("Filename", screenshotFilename, sizeof(screenshotFilename));
+				ImGui::InputInt("Width", &captureWidth);
+				ImGui::InputInt("Height", &captureHeight);
+
+				if (ImGui::Button("Take Screenshot")) {
+					// Set low tolerance for rk45
+					shader.setFloat("atol", 1e-9f);
+					shader.setFloat("rtol", 1e-9f);
+					shader.setUInt("MAX_SAME_STEPS", 50u);
+					shader.setFloat("MIN_TAU", 1e-25f);
+
+					// Take the screenshot
+					takeScreenshot(
+						screenshotFilename,
+						static_cast<size_t>(std::max(captureWidth, 0)),
+						static_cast<size_t>(std::max(captureHeight, 0)),
+						shader,
+						vertexArray,
+						zoomScale,
+						realPartStart,
+						imagPartStart,
+						100'000 // real-time-app uses getMaxIterations()
+					);
+
+					// Reset everything that was changed before calling takeScreenshot
+					shader.setFloat("atol", std::pow(10.0f, atolExponent));
+					shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
+					shader.setUInt("MAX_SAME_STEPS", maxSameSteps);
+					shader.setFloat("MIN_TAU", minStepSize);
+				}
+
+				ImGui::EndTabItem();
+			}
 			if (ImGui::BeginTabItem("Advanced"))
 			{
 				ImGui::Text("Start real:\t%.25Lf", realPartStart);
@@ -329,16 +381,31 @@ static void mouseScrollCallbackGLFW(GLFWwindow* _window, double xOffset, double 
 	(void)_window; // suppress unused warning
 	(void)xOffset; // suppress unused warning
 
-	if (yOffset == 1.0)
-		zoom(1 / ZOOM_STEP);
-	else if (yOffset == -1.0)
-		zoom(ZOOM_STEP);
+	// GLFW_KEY_LEFT_SHIFT or GLFW_KEY_RIGHT_SHIFT
+	bool shiftPressed = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+		|| (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
+
+	if (yOffset == 1.0) {
+		if (!shiftPressed) {
+			zoom(1.0 / ZOOM_STEP);
+		} else {
+			zoom(1.0 / ZOOM_STEP_SMALL);
+		}
+	}
+	else if (yOffset == -1.0) {
+		if (!shiftPressed) {
+			zoom(ZOOM_STEP);
+		} else {
+			zoom(ZOOM_STEP_SMALL);
+		}
+	}
 }
 
 static void keyCallbackGLFW(GLFWwindow* _window, int key, int scancode, int action, int mods) {
 	(void)scancode; // suppress unused warning
 
 	bool ctrl = (mods & GLFW_MOD_CONTROL) != 0;
+	bool shift = (mods & GLFW_MOD_SHIFT) != 0;
 	
 	// Solo Keys
 	switch (key) {
@@ -346,6 +413,56 @@ static void keyCallbackGLFW(GLFWwindow* _window, int key, int scancode, int acti
 			if (action == GLFW_PRESS)
 				glfwSetWindowShouldClose(_window, true);
 			break;
+	}
+
+	// Ctrl + Shift + Key
+	if (ctrl && shift) {
+		switch (key) {
+			case GLFW_KEY_KP_ADD: // Numpad +
+			case GLFW_KEY_EQUAL:  // Regular +
+				if (action == GLFW_PRESS) {
+					stopContinuousZooming();
+					zoomingInSlow = true;
+				} else if (action == GLFW_RELEASE) {
+					stopContinuousZooming();
+				}
+				break;
+
+			case GLFW_KEY_KP_SUBTRACT: // Numpad -
+			case GLFW_KEY_MINUS:       // Regular -
+				if (action == GLFW_PRESS) {
+					stopContinuousZooming();
+					zoomingOutSlow = true;
+				} else if (action == GLFW_RELEASE) {
+					stopContinuousZooming();
+				}
+				break;
+		}
+	}
+
+	// Ctrl + Key without shift
+	if (ctrl && !shift) {
+		switch (key) {
+			case GLFW_KEY_KP_ADD: // Numpad +
+			case GLFW_KEY_EQUAL:  // Regular +
+				if (action == GLFW_PRESS) {
+					stopContinuousZooming();
+					zoomingIn = true;
+				} else if (action == GLFW_RELEASE) {
+					stopContinuousZooming();
+				}
+				break;
+
+			case GLFW_KEY_KP_SUBTRACT: // Numpad -
+			case GLFW_KEY_MINUS:       // Regular -
+				if (action == GLFW_PRESS) {
+					stopContinuousZooming();
+					zoomingOut = true;
+				} else if (action == GLFW_RELEASE) {
+					stopContinuousZooming();
+				}
+				break;
+		}
 	}
 
 	// Ctrl + Key
@@ -359,26 +476,6 @@ static void keyCallbackGLFW(GLFWwindow* _window, int key, int scancode, int acti
 			case GLFW_KEY_ENTER:
 				if (action == GLFW_PRESS)
 					ImGuiEnabled = !ImGuiEnabled;
-				break;
-
-			case GLFW_KEY_KP_ADD: // Numpad +
-			case GLFW_KEY_EQUAL:  // Regular +
-				if (action == GLFW_PRESS) {
-					zoom(1.0 / ZOOM_STEP);
-					zoomingIn = true;
-				} else if (action == GLFW_RELEASE) {
-					zoomingIn = false;
-				}
-				break;
-
-			case GLFW_KEY_KP_SUBTRACT: // Numpad -
-			case GLFW_KEY_MINUS:       // Regular -
-				if (action == GLFW_PRESS) {
-					zoom(ZOOM_STEP);
-					zoomingOut = true;
-				} else if (action == GLFW_RELEASE) {
-					zoomingOut = false;
-				}
 				break;
 		}
 	}
@@ -475,22 +572,27 @@ static void initImGui() {
 }
 
 static void initUniformVariables() {
+	shader.setVec2UInt("tileOffset", { 0u, 0u }); // only needed for tiled screenshot rendering
 	shader.setUInt("MAX_STEPS", static_cast<uint>(maxIterations));
+	shader.setUInt("MAX_SAME_STEPS", maxSameSteps);
+	shader.setFloat("MIN_TAU", minStepSize);
 	shader.setFloat("atol", std::pow(10.0f, atolExponent));
 	shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
 
-	// shader.setFloat("t_end", simulationEndTime);
-	// shader.setFloat("v1_start", v1Start);
-	// shader.setFloat("v2_start", v2Start);
-	// shader.setFloat("g", weightConstant);
-	// shader.setFloat("l1", length1);
-	// shader.setFloat("l2", length2);
-	// shader.setFloat("m1", mass1);
-	// shader.setFloat("m2", mass2);
-
+	// Double Pendulum
 	shader.setFloat("t_end", simulationEndTime);
-	// shader.setFloat("g", gravitationalConstant);
-	shader.setFloatArray("m", masses, N);
+	shader.setFloat("v1_start", v1Start);
+	shader.setFloat("v2_start", v2Start);
+	shader.setFloat("g", weightConstant);
+	shader.setFloat("l1", length1);
+	shader.setFloat("l2", length2);
+	shader.setFloat("m1", mass1);
+	shader.setFloat("m2", mass2);
+
+	// N Body Problem
+	// shader.setFloat("t_end", simulationEndTime);
+	// // shader.setFloat("g", gravitationalConstant);
+	// shader.setFloatArray("m", masses, N);
 }
 
 
@@ -508,8 +610,8 @@ int main()
 
 	// Shader
 	//shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
-	// shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false); // Compile and link shader, but keep sources, ...
-	shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_n_body_problem.glsl", false, false); // Compile and link shader, but keep sources, ...
+	shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false); // Compile and link shader, but keep sources, ...
+	// shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_n_body_problem.glsl", false, false); // Compile and link shader, but keep sources, ...
 	// define default values 
 	//shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
 	//shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
@@ -601,10 +703,13 @@ int main()
 
 		// Zooming
 		if (zoomingIn) {
-			// TODO That doesnt make sense for multipliative zoom
 			zoom(1.0 / std::pow(ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
 		} else if (zoomingOut) {
 			zoom(std::pow(ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
+		} else if (zoomingInSlow) {
+			zoom(1.0 / std::pow(SLOW_ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
+		} else if (zoomingOutSlow) {
+			zoom(std::pow(SLOW_ZOOM_PER_SECOND, static_cast<double>(delta.count())/1000.0));
 		}
 
 		if (ImGuiEnabled) {

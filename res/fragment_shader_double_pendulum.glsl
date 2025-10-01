@@ -3,6 +3,7 @@
 uniform uvec2 windowSize;
 uniform double zoomScale;
 uniform dvec2 numberStart;
+uniform uvec2 tileOffset; // used for tiled screenshot rendering
 
 uniform float v1_start;
 uniform float v2_start;
@@ -65,8 +66,21 @@ float remap(float x, float a, float b, float c, float d) {
 }
 
 void main() {
-	real q1_start = real(zoomScale * (double(gl_FragCoord.x) + 0.5) / windowSize.x + numberStart.x);
-	real q2_start = real((zoomScale * (double(gl_FragCoord.y) + 0.5) + numberStart.y * windowSize.y) / windowSize.x);
+	// Without tiled rendering
+	// real q1_start = real(zoomScale * double(gl_FragCoord.x) / windowSize.x + numberStart.x);
+	// real q2_start = real((zoomScale * double(gl_FragCoord.y) + numberStart.y * windowSize.y) / windowSize.x);
+
+	// With tiled rendering (old)
+	// rvec2 globalPixel = rvec2(real(tileOffset.x), real(tileOffset.y)) + rvec2(gl_FragCoord.xy);
+	// real q1_start = real(zoomScale) * globalPixel.x / real(windowSize.x) + real(numberStart.x);
+	// real q2_start = (real(zoomScale) * globalPixel.y + real(numberStart.y) * real(windowSize.y)) / real(windowSize.x);
+
+	// With tiled rendering
+	// (Compute start value in double precision, then round to real -> might lead to a little increase in maximum zoom depth)
+	real q1_start = real(zoomScale * double(gl_FragCoord.x + tileOffset.x) / windowSize.x + numberStart.x);
+	real q2_start = real((zoomScale * double(gl_FragCoord.y + tileOffset.y) + numberStart.y * windowSize.y) / windowSize.x);
+
+
 
 	rvec4 y_start = rvec4(
 		q1_start,
@@ -101,7 +115,7 @@ void main() {
 		fragColor = vec4(1.0, 0.0, 0.7, 1.0); // purple
 		return;
 	} else if (status == ERR_TAU_TOO_SMALL) {
-		fragColor = vec4(1.0, 1.0, 1.0, 1.0); // white
+		fragColor = vec4(1.0, 0.7, 0.7, 1.0); // light red
 		return;
 	}
 
@@ -124,6 +138,5 @@ void main() {
 	// float value = remap(float(length(rvec2(x2, y2))), 0.0, 4.0, 0.0, 1.0);
 	// float value = remap(float(step_counter), 0.0, float(MAX_STEPS / 3.0), 0.0, 1.0);
 
-
-	fragColor = viridis(value);
+	fragColor = inferno(value);
 }
