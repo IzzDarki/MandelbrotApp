@@ -21,8 +21,8 @@ void SavedView::initFromFile() {
 	}
 }
 
-void SavedView::saveNew(long double zoomScale, const ComplexNum& startNum, const std::string& name) {
-	allViews.push_back(SavedView{zoomScale, startNum, name});
+void SavedView::saveNew(long double zoomScale, const ComplexNum& center, const std::string& name) {
+	allViews.push_back(SavedView{zoomScale, center, name});
 	const SavedView& currentElement = *(allViews.cend() - 1);
 	iniFile.set(currentElement.imGuiIDs[0], currentElement.viewDataToString());
 }
@@ -65,8 +65,8 @@ int SavedView::createNewID() const {
 	return newID;
 }
 
-SavedView::SavedView(long double _zoomScale, const ComplexNum& _startNum, const std::string& _name)
-    : zoomScale(_zoomScale), startNum(_startNum), name(_name)
+SavedView::SavedView(long double _zoomScale, const ComplexNum& _center, const std::string& _name)
+    : zoomScale(_zoomScale), center(_center), name(_name)
 {
     if (_name.empty()) {
         this->name = createGenericName();
@@ -78,7 +78,7 @@ SavedView::SavedView(long double _zoomScale, const ComplexNum& _startNum, const 
 }
 
 SavedView::SavedView(int firstID, const std::string& viewData) {
-	// Format: "name|zoomScale|startNum.first|startNum.second|imGuiIds[1]|...|imGuiIds['last']|"
+	// Format: "name|zoomScale|center.first|center.second|imGuiIds[1]|...|imGuiIds['last']|"
 	std::string value;
 	std::stringstream stream{viewData};
 
@@ -90,10 +90,10 @@ SavedView::SavedView(int firstID, const std::string& viewData) {
 	zoomScale = std::stold(value);
 
 	std::getline(stream, value, '|');
-	startNum.first = std::stold(value);
+	center.first = std::stold(value);
 
 	std::getline(stream, value, '|');
-	startNum.second = std::stold(value);
+	center.second = std::stold(value);
 
 	for (size_t i = 0; std::getline(stream, value, '|'); i++)
 		imGuiIDs[i + 1] = std::stoi(value);
@@ -102,15 +102,15 @@ SavedView::SavedView(int firstID, const std::string& viewData) {
 std::string SavedView::createGenericName() const {
     std::stringstream stream;
     stream.precision(5);
-    stream << startNum.first + 0.5L * zoomScale << " + " << startNum.second + 0.5L * zoomScale << " i (" << zoomScale << ")";
+    stream << center.first * zoomScale << " + " << center.second * zoomScale << " i (" << zoomScale << ")";
     return stream.str();
 }
 
 std::string SavedView::viewDataToString() const {
-	// Format: "name|zoomScale|startNum.first|startNum.second|imGuiIds[1]|...|imGuiIds['last']|"
+	// Format: "name|zoomScale|center.first|center.second|imGuiIds[1]|...|imGuiIds['last']|"
 	std::stringstream stream;
 	stream.precision(std::numeric_limits<long double>::max_digits10);
-	stream << name << '|' << zoomScale << '|' << startNum.first << '|' << startNum.second << '|';
+	stream << name << '|' << zoomScale << '|' << center.first << '|' << center.second << '|';
 	for (size_t i = 1; i < imGuiIDs.size(); i++)
 		stream << imGuiIDs[i] << '|';
 	return stream.str();

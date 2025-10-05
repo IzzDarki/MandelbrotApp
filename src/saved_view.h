@@ -19,7 +19,7 @@ public:
     using IDsList_t = std::array<int, NUMBER_OF_IDS>;
     static std::vector<SavedView> allViews;
     static void initFromFile();
-    static void saveNew(long double zoomScale, const ComplexNum& startNum, const std::string& name = "");
+    static void saveNew(long double zoomScale, const ComplexNum& center, const std::string& name = "");
     static void removeSavedView(const SavedView& savedView);
     
 protected:
@@ -29,13 +29,13 @@ protected:
 // * non-static
 protected:
 	long double zoomScale;
-	ComplexNum startNum;
+	ComplexNum center;
     std::string name;
 	IDsList_t imGuiIDs; // -1 is an invalid id
 
 public:
     inline long double getZoomScale() const { return zoomScale; }
-    inline const ComplexNum& getStartNum() const { return startNum; }
+    inline const ComplexNum& getCenter() const { return center; }
     inline const std::string& getName() const { return name; }
     inline const IDsList_t& getImGuiIDs() const { return imGuiIDs; }
 
@@ -44,7 +44,7 @@ public:
     auto operator<=>(const SavedView& other) const = default;
 
 protected:
-    SavedView(long double zoomScale, const ComplexNum& startNum, const std::string& name = "");
+    SavedView(long double zoomScale, const ComplexNum& center, const std::string& name = "");
     SavedView(int firstID, const std::string& viewData);
     std::string createGenericName() const;
     int createNewID() const;

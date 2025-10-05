@@ -8,8 +8,8 @@ bool takeScreenshot(
     Shader& shader,
     unsigned int vertexArray,
     long double zoomScale,
-    long double realPartStart,
-    long double imagPartStart,
+    long double centerX,
+    long double centerY,
     int maxSteps,
     size_t maxTileSize = 2048 // maximum tile width/height in pixels
 );

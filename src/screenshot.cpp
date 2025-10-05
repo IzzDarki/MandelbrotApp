@@ -22,8 +22,8 @@ bool takeScreenshot(
     Shader& shader,
     unsigned int vertexArray,
     long double zoomScale,
-    long double realPartStart,
-    long double imagPartStart,
+    long double centerX,
+    long double centerY,
     int maxSteps,
     size_t maxTileSize /* = 2048 */
 ) {
@@ -199,7 +199,7 @@ bool takeScreenshot(
             // - tileOffset is the pixel offset of this tile in the full image
             shader.use();
             shader.setVec2UInt("windowSize", { static_cast<unsigned int>(captureWidth), static_cast<unsigned int>(captureHeight) });
-            shader.setVec2Double("numberStart", { realPartStart, imagPartStart });
+            shader.setVec2Double("center", { static_cast<double>(centerX), static_cast<double>(centerY) });
             const size_t xOffset = tx * maxTileSize;
             const size_t yOffset = ty * maxTileSize;
             shader.setVec2UInt("tileOffset", { static_cast<unsigned int>(xOffset), static_cast<unsigned int>(yOffset) });

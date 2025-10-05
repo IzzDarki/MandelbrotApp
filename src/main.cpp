@@ -24,8 +24,8 @@ static Shader shader;
 static int windowWidth = 1080;
 static int windowHeight = 720;
 static long double zoomScale = 3.5L; //1.7e-10;
-static long double realPartStart = -2.5L; //-0.04144230656908739;
-static long double imagPartStart = -1.75L; //1.48014290228390966;
+static long double centerX = -2.5L; //-0.04144230656908739;
+static long double centerY = -1.75L; //1.48014290228390966;
 static unsigned int vertexArray = 0; // VAO 
 static bool zoomingIn = false; // e.g. if Ctrl + Plus is pressed, this is true
 static bool zoomingOut = false;
@@ -103,35 +103,47 @@ static float calcFPSAverage() {
 	return average / lastFrameDeltas.size();
 }
 
-static ComplexNum getNumberAtPos(double x, double y) {
-	long double real = zoomScale * (x + 0.5) / windowWidth + realPartStart;
-    long double imag = (zoomScale * (y + 0.5) + imagPartStart * windowHeight) / windowWidth;
+// * FUNCTIONS
+/** A measure of how big the window is. Could be anything, just has to be the same everywhere including in the shader */
+static inline long double getWindowSize() {
+	return std::min(windowWidth, windowHeight);
+}
 
+static ComplexNum getNumberAtPos(double x, double y) {
+	long double windowSize = getWindowSize();
+	long double real = (zoomScale / windowSize) * (x + 0.5L - windowWidth / 2.0L) + centerX;
+    long double imag = (zoomScale / windowSize) * (y + 0.5L - windowHeight / 2.0L) + centerY;
 	return {real, imag};
 }
 
 static ComplexNum getNumberAtCursor() {
 	double mouseX, mouseY;
 	glfwGetCursorPos(window, &mouseX, &mouseY);
+	mouseY = windowHeight - mouseY;
 	return getNumberAtPos(mouseX, mouseY);
 }
-
-// * FUNCTIONS
 
 static void zoom(long double factor) {
 	double mouseX, mouseY;
 	glfwGetCursorPos(window, &mouseX, &mouseY);
+	mouseY = windowHeight - mouseY;
 
-	realPartStart += (1.0L - factor) * zoomScale / windowWidth * mouseX;
-	imagPartStart += (1.0L - factor) * zoomScale / windowHeight * ((long double)windowHeight - mouseY);
-
+	auto windowSize = getWindowSize();
+	centerX += ((1.0L - factor) * zoomScale / windowSize) * (static_cast<long double>(mouseX) + 0.5L - windowWidth / 2.0L);
+	centerY += ((1.0L - factor) * zoomScale / windowSize) * (static_cast<long double>(mouseY) + 0.5L - windowHeight / 2.0);
 	zoomScale *= factor;
+
+	shader.setDouble("zoomScale", static_cast<double>(zoomScale));
+	shader.setVec2Double("center", { centerX, centerY });
 }
 
 static void jumpToView(const SavedView& savedView) {
 	zoomScale = savedView.getZoomScale();
-	realPartStart = savedView.getStartNum().first;
-	imagPartStart = savedView.getStartNum().second;
+	centerX = savedView.getCenter().first;
+	centerY = savedView.getCenter().second;
+
+	shader.setDouble("zoomScale", static_cast<double>(zoomScale));
+	shader.setVec2Double("center", { centerX, centerY });
 }
 
 static void ImGuiFrame(bool& showImGuiWindow) {
@@ -247,13 +259,14 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				ImGui::Text("Zoom: %.1Le", zoomScale);
 				auto [real, imag] = getNumberAtCursor();
 				ImGui::Text("Cursor: %.10Lf + %.10Lf i", real, imag);
+				ImGui::Text("Center: %.10Lf + %.10LF i", centerX, centerY);
 				ImGui::EndTabItem();
 			}
 			if (ImGui::BeginTabItem("Saved views"))
 			{
 				// Button to save current view
 				if (ImGui::Button("Save current view"))
-					SavedView::saveNew(zoomScale, {realPartStart, imagPartStart});
+					SavedView::saveNew(zoomScale, {centerX, centerY});
 
 				for (SavedView& savedView : SavedView::allViews) {
 					ImGui::PushID(savedView.getImGuiIDs()[0]);
@@ -324,8 +337,8 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 						shader,
 						vertexArray,
 						zoomScale,
-						realPartStart,
-						imagPartStart,
+						centerX,
+						centerY,
 						100'000, // real-time-app uses getMaxIterations()
 						static_cast<size_t>(maxTileSize)
 					);
@@ -337,12 +350,6 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 					shader.setFloat("MIN_TAU", minStepSize);
 				}
 
-				ImGui::EndTabItem();
-			}
-			if (ImGui::BeginTabItem("Advanced"))
-			{
-				ImGui::Text("Start real:\t%.25Lf", realPartStart);
-				ImGui::Text("Start imag:\t%.25Lf", imagPartStart);
 				ImGui::EndTabItem();
 			}
 			if (ImGui::BeginTabItem("Help"))
@@ -365,11 +372,11 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 
 static void windowResizeCallback(GLFWwindow* _window, int width, int height) {
 	(void)_window; // suppress unused warning
-	realPartStart = (0.5l * zoomScale * (1.0l / windowWidth - 1.0l / width)) + realPartStart;
-	imagPartStart = ((long double)width / height) * ((zoomScale * (0.5l * windowHeight + 0.5l) + imagPartStart * windowHeight) / windowWidth) - (0.5l * zoomScale * (1.0l + 1.0l / height));
 	windowWidth = width;
 	windowHeight = height;
 	glViewport(0, 0, width, height);
+
+	shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
 }  
 
 static void debugCallbackOpenGL(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam) {
@@ -578,8 +585,14 @@ static void initImGui() {
 }
 
 static void initUniformVariables() {
+	// Coordinate Mapping
+	shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
+	shader.setDouble("zoomScale", static_cast<double>(zoomScale));
+	shader.setVec2Double("center", { centerX, centerY });
 	shader.setVec2UInt("tileOffset", { 0u, 0u }); // only needed for tiled screenshot rendering
-	shader.setUInt("MAX_STEPS", static_cast<uint>(maxIterations));
+	
+	// RK45
+	shader.setUInt("MAX_STEPS", static_cast<unsigned int>(getMaxIterations()));
 	shader.setUInt("MAX_SAME_STEPS", maxSameSteps);
 	shader.setFloat("MIN_TAU", minStepSize);
 	shader.setFloat("atol", std::pow(10.0f, atolExponent));
@@ -680,11 +693,6 @@ int main()
 
 		// use program (should be called in the loop, since other parts could use other programs in the meantime, according to ChatGPT)
 		shader.use();
-
-		shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
-		shader.setDouble("zoomScale", static_cast<double>(zoomScale));
-		shader.setVec2Double("numberStart", { realPartStart, imagPartStart });
-		shader.setUInt("MAX_STEPS", static_cast<unsigned int>(getMaxIterations()));
 	
 		if (ImGuiEnabled)
 			ImGui::Render();
