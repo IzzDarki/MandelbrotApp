@@ -299,10 +299,14 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				static char screenshotFilename[128] = "screenshot.png";
 				static int captureWidth  = 1920;
 				static int captureHeight = 1080;
+				static int maxTileSize = 2048;
+				static float thresholdFactor = 0.01f;
 
 				ImGui::InputText("Filename", screenshotFilename, sizeof(screenshotFilename));
 				ImGui::InputInt("Width", &captureWidth);
 				ImGui::InputInt("Height", &captureHeight);
+				ImGui::InputInt("Max Tile Size", &maxTileSize);
+				ImGui::SliderFloat("Threshold Factor", &thresholdFactor, 1e-10f, 500.0f);
 
 				if (ImGui::Button("Take Screenshot")) {
 					// Set low tolerance for rk45
@@ -310,6 +314,7 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 					shader.setFloat("rtol", 1e-9f);
 					shader.setUInt("MAX_SAME_STEPS", 50u);
 					shader.setFloat("MIN_TAU", 1e-25f);
+					shader.setFloat("thresholdFactor", thresholdFactor);
 
 					// Take the screenshot
 					takeScreenshot(
@@ -321,7 +326,8 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 						zoomScale,
 						realPartStart,
 						imagPartStart,
-						100'000 // real-time-app uses getMaxIterations()
+						100'000, // real-time-app uses getMaxIterations()
+						static_cast<size_t>(maxTileSize)
 					);
 
 					// Reset everything that was changed before calling takeScreenshot
