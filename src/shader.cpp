@@ -2,6 +2,7 @@
 
 #include <regex>
 #include <string>
+#include <sstream>
 
 using namespace vec;
 
@@ -38,13 +39,11 @@ void Shader::deleteProgram() {
 }
 
 void Shader::compileVertexShader() {
-    std::string finalShaderSource = replaceDefines(vertexShaderSource);
-    vertexShader = loadShaderFromSource(GL_VERTEX_SHADER, finalShaderSource);
+    vertexShader = loadShaderFromSource(GL_VERTEX_SHADER, this->prependDefines(this->vertexShaderSource));
 }
 
 void Shader::compileFragmentShader() {
-    std::string finalShaderSource = replaceDefines(fragmentShaderSource);
-    fragmentShader = loadShaderFromSource(GL_FRAGMENT_SHADER, finalShaderSource);
+    fragmentShader = loadShaderFromSource(GL_FRAGMENT_SHADER, this->prependDefines(this->fragmentShaderSource));
 }
 
 void Shader::link() {
@@ -588,12 +587,6 @@ void Shader::recompile() {
     }
 }
 
-std::string Shader::replaceDefines(const std::string& shaderSource) const {
-    std::string shaderSourceWidthDefines = shaderSource;
-    for (const auto& pair : defines)
-        replaceAll(shaderSourceWidthDefines, pair.first, pair.second);
-    return shaderSourceWidthDefines;
-}
 
 std::string Shader::loadShaderSourceFromPath(const std::string& shaderSourcePath, unsigned int maxDepth, unsigned int depth) {
 
@@ -665,4 +658,35 @@ unsigned int Shader::linkShaderProgram(unsigned int vertexShader, unsigned int f
         std::cout << "Shader program failed to link: " << infoLog << std::endl;
     }
     return shaderProgram;
+}
+
+std::pair<std::string_view, std::string_view> splitFirstLine(std::string_view text) {
+    size_t pos = text.find('\n');
+    if (pos == std::string_view::npos) {
+        // No newline found → entire string is one line
+        return { text, std::string_view{} };
+    } else {
+        std::string_view first = text.substr(0, pos);
+        // Skip the newline (and possible \r before it)
+        size_t next = pos + 1;
+        if (pos > 0 && text[pos - 1] == '\r') {
+            first = text.substr(0, pos - 1);
+        }
+        std::string_view rest = text.substr(next);
+        return { first, rest };
+    }
+}
+
+std::string Shader::prependDefines(const std::string& shaderSource) {
+    std::ostringstream oss;
+
+    const auto [firstLine, rest] = splitFirstLine(shaderSource);
+
+    oss << firstLine << '\n';
+    for (const auto& [key, value] : this->defines) {
+        oss << "#define " << key << " " << value << '\n';
+    }
+    oss << '\n' << rest;
+
+    return oss.str();
 }

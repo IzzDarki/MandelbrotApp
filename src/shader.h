@@ -193,7 +193,7 @@ protected:
 
 protected: // helpers
 
-    std::string replaceDefines(const std::string& shaderSource) const;
+    std::string prependDefines(const std::string& shaderSource);
 
     /**
      * Loads shader source code from a path and recursively loads #include dependencies which are literally copy pasted into the source code of the parent shader

@@ -21,6 +21,7 @@
 
 static GLFWwindow* window;
 static Shader shader;
+
 static int windowWidth = 1080;
 static int windowHeight = 720;
 static long double zoomScale = 3.5L; //1.7e-10;
@@ -36,11 +37,17 @@ static constexpr long double ZOOM_STEP_SMALL = 1.01L;
 static constexpr double ZOOM_PER_SECOND = 3.0; // continuous zoom (multiplicative)
 static constexpr double SLOW_ZOOM_PER_SECOND = 1.3;
 
-static std::array<float, 25> lastFrameDeltas;
+static std::array<float, 10> lastFrameDeltas;
 static std::size_t lastFrameArrayIndex = 0;
 static bool autoMaxIterations = false;
 
-// RK45 Paramters
+// Adaptive Super Sampling (Anti-Aliasing)
+static int ssMode = 2;
+static float ssMeanDiffTolerance = 0.003f;
+static float ssAbsoluteStandardErrorTolerance = 0.004f;
+static float ssRelativeStandardErrorTolerance = 0.01f;
+
+// RK45 Parameters
 static int maxIterations = 10'000;
 static uint maxSameSteps = 30u;
 static float minStepSize = 1e-12f;
@@ -158,6 +165,74 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 		{
 			if (ImGui::BeginTabItem("Info"))
 			{
+				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+				ImGui::Text("%.1f fps", static_cast<double>(calcFPSAverage()));
+
+				ImGui::Text("Display Controls: ");
+				if (ImGui::CollapsingHeader("Super Sampling (Anti-Aliasing)")) {
+					if (ImGui::Selectable("Off", (ssMode == 1))) {
+						ssMode = 1;
+						shader.define("SUPER_SAMPLING", "1");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("Adaptive", (ssMode == 0))) {
+						ssMode = 0;
+						shader.define("SUPER_SAMPLING", "0");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("2", (ssMode == 2))) {
+						ssMode = 2;
+						shader.define("SUPER_SAMPLING", "2");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("4", (ssMode == 4))) {
+						ssMode = 4;
+						shader.define("SUPER_SAMPLING", "4");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("6", (ssMode == 6))) {
+						ssMode = 6;
+						shader.define("SUPER_SAMPLING", "6");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("8", (ssMode == 8))) {
+						ssMode = 8;
+						shader.define("SUPER_SAMPLING", "8");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("12", (ssMode == 12))) {
+						ssMode = 12;
+						shader.define("SUPER_SAMPLING", "12");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("16", (ssMode == 16))) {
+						ssMode = 16;
+						shader.define("SUPER_SAMPLING", "16");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("16 (pmj)", (ssMode == 1601))) {
+						ssMode = 1601;
+						shader.define("SUPER_SAMPLING", "1601");
+						shader.recompile();
+					}
+					if (ImGui::Selectable("32 (pmj)", (ssMode == 32))) {
+						ssMode = 32;
+						shader.define("SUPER_SAMPLING", "32");
+						shader.recompile();
+					}
+
+					ImGui::Text("Adaptive Super Sampling: ");
+					if (ImGui::SliderFloat("Mean Tol", &ssMeanDiffTolerance, 0.0f, 0.4f)) {
+						shader.setFloat("MEAN_DIFF_TOL", ssMeanDiffTolerance);
+					}
+					if (ImGui::SliderFloat("Abs SE Tol", &ssAbsoluteStandardErrorTolerance, 0.0f, 0.4f)) {
+						shader.setFloat("ABS_SE_TOL", ssAbsoluteStandardErrorTolerance);
+					}
+					if (ImGui::SliderFloat("Rel SE Tol", &ssRelativeStandardErrorTolerance, 0.0f, 0.4f)) {
+						shader.setFloat("REL_SE_TOL", ssRelativeStandardErrorTolerance);
+					}
+				}
+
 				ImGui::Text("RK45 Controls: ");
 				if (ImGui::SliderInt("Max iterations", &maxIterations, 1, 100'000))
 					autoMaxIterations = false;
@@ -170,7 +245,7 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 					shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
 
 
-				ImGui::Text("Color: ");
+				// ImGui::Text("Color: ");
 				// ImGui::SameLine();
 				// if (ImGui::SmallButton("RGB")) {
 				// 	shader.define(FLOW_COLOR_TYPE, "0");
@@ -254,8 +329,6 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				// }
 
 				// Status info
-				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-				ImGui::Text("%.1f fps", static_cast<double>(calcFPSAverage()));
 				ImGui::Text("Zoom: %.1Le", zoomScale);
 				auto [real, imag] = getNumberAtCursor();
 				ImGui::Text("Cursor: %.10Lf + %.10Lf i", real, imag);
@@ -327,7 +400,7 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 					shader.setFloat("rtol", 1e-9f);
 					shader.setUInt("MAX_SAME_STEPS", 50u);
 					shader.setFloat("MIN_TAU", 1e-25f);
-					shader.setFloat("thresholdFactor", thresholdFactor);
+					shader.setFloat("superSamplingThresholdFactor", thresholdFactor);
 
 					// Take the screenshot
 					takeScreenshot(
@@ -585,6 +658,11 @@ static void initImGui() {
 }
 
 static void initUniformVariables() {
+	// Adaptive Super Sampling (Anti-Aliasing)
+	shader.setFloat("MEAN_DIFF_TOL", ssMeanDiffTolerance);
+	shader.setFloat("ABS_SE_TOL", ssAbsoluteStandardErrorTolerance);
+	shader.setFloat("REL_SE_TOL", ssRelativeStandardErrorTolerance);
+
 	// Coordinate Mapping
 	shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
 	shader.setDouble("zoomScale", static_cast<double>(zoomScale));
@@ -614,6 +692,10 @@ static void initUniformVariables() {
 	// shader.setFloatArray("m", masses, N);
 }
 
+static void initDefines() {
+	shader.define("SUPER_SAMPLING", std::to_string(ssMode)); // off
+}
+
 
 // * MAIN FUNCTION
 
@@ -635,6 +717,7 @@ int main()
 	//shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
 	//shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
 	//shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, codeCalculateNextSequenceTerm);
+	initDefines();
 	shader.compileVertexShader();
 	shader.compileFragmentShader();
 	shader.link();
