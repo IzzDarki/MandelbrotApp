@@ -6,9 +6,26 @@
 
 using namespace vec;
 
-Shader::Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath, bool compileAndLink, bool clean) {
+Shader::Shader(const Shader& other)
+    : vertexShaderSource(other.vertexShaderSource), fragmentShaderSource(other.fragmentShaderSource), defines(other.defines), uniforms(other.uniforms)
+    { }
 
-    // this->defines = defines;
+Shader::Shader(Shader&& other) noexcept
+    : vertexShader(other.vertexShader),
+      fragmentShader(other.fragmentShader),
+      shaderProgram(other.shaderProgram),
+      vertexShaderSource(std::move(other.vertexShaderSource)),
+      fragmentShaderSource(std::move(other.fragmentShaderSource)),
+      defines(std::move(other.defines)),
+      uniforms(std::move(other.uniforms))
+    {
+        other.vertexShader = 0;
+        other.fragmentShader = 0;
+        other.shaderProgram = 0;
+    }
+
+
+Shader::Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath, bool compileAndLink) {
     vertexShaderSource = Shader::loadShaderSourceFromPath(vertexShaderSourcePath);
     fragmentShaderSource = Shader::loadShaderSourceFromPath(fragmentShaderSourcePath);
 
@@ -16,17 +33,40 @@ Shader::Shader(const std::string& vertexShaderSourcePath, const std::string& fra
         compileVertexShader();
         compileFragmentShader();
         link();
-        
-        if (clean)
-            this->clean();
     }
 }
 
-void Shader::clean() {
+Shader::~Shader() {
+    destroy();
+}
+
+Shader& Shader::operator=(const Shader& other) {
+    this->vertexShaderSource = other.vertexShaderSource;
+    this->fragmentShaderSource = other.fragmentShaderSource;
+    this->defines = other.defines;
+    this->uniforms = other.uniforms;
+    return *this;
+}
+
+Shader& Shader::operator=(Shader&& other) noexcept {
+    this->vertexShader = other.vertexShader;
+    this->fragmentShader = other.fragmentShader;
+    this->shaderProgram = other.shaderProgram;
+    this->vertexShaderSource = std::move(other.vertexShaderSource);
+    this->fragmentShaderSource = std::move(other.fragmentShaderSource);
+    this->defines = std::move(other.defines);
+    this->uniforms = std::move(other.uniforms);
+
+    other.vertexShader = 0;
+    other.fragmentShader = 0;
+    other.shaderProgram = 0;
+
+    return *this;
+}
+
+void Shader::destroy() {
     deleteShaders();
-    vertexShaderSource.clear();
-    fragmentShaderSource.clear();
-    defines.clear();
+    deleteProgram();
 }
 
 void Shader::deleteShaders() {
@@ -34,9 +74,30 @@ void Shader::deleteShaders() {
     deleteFragmentShader();
 }
 
-void Shader::deleteProgram() {
-    glDeleteProgram(shaderProgram);
+void Shader::deleteVertexShader() {
+    if (vertexShader == 0) { // check needed, since the function might be called before an OpenGL context is created. In that case glDeleteShader may not be called, not even on 0
+        return;
+    }
+    glDeleteShader(vertexShader);
+    vertexShader = 0;
 }
+
+void Shader::deleteFragmentShader() {
+    if (fragmentShader == 0) { // check needed, since the function might be called before an OpenGL context is created. In that case glDeleteShader may not be called, not even on 0
+        return;
+    }
+    glDeleteShader(fragmentShader);
+    fragmentShader = 0;
+}
+
+void Shader::deleteProgram() {
+    if (shaderProgram == 0) { // check needed, since the function might be called before an OpenGL context is created. In that case glDeleteProgram may not be called, not even on 0
+        return;
+    }
+    glDeleteProgram(shaderProgram);
+    shaderProgram = 0;
+}
+
 
 void Shader::compileVertexShader() {
     vertexShader = loadShaderFromSource(GL_VERTEX_SHADER, this->prependDefines(this->vertexShaderSource));
@@ -548,6 +609,7 @@ auto Shader::getVec4DoubleArray(const std::string& name) -> const std::vector<ve
 
 void Shader::recompile() {
     deleteFragmentShader();
+    deleteProgram();
     compileFragmentShader();
     link();
     use();

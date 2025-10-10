@@ -1,16 +1,15 @@
 #pragma once
 #include <string>
 
+#include "model/model.h"
+
 bool takeScreenshot(
     std::string filename,
     size_t captureWidth,
     size_t captureHeight,
-    Shader& shader,
+    Model& model,
     unsigned int vertexArray,
-    long double zoomScale,
-    long double centerX,
-    long double centerY,
-    int maxSteps,
+
     size_t maxTileSize = 2048 // maximum tile width/height in pixels
 );
 

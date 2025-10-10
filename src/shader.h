@@ -80,29 +80,31 @@ public:
 
 public:
     Shader() = default;
+    Shader(const Shader& other);
+    Shader(Shader&& other) noexcept;
     /**
      * Creates a Shader
      * 
      * @param vertexShaderSource Vertex shader source
      * @param fragmentShaderSource Fragment shader source
      * @param compileAndLink When `true` the shader sources will be compiled and linked instantly, otherwise this can be done manually later (default is `true`)
-     * @param clean When `true` the openGL shaders and the shader sources will be deleted after compiling and linking (default is `true`)
      */
-    Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath, bool compileAndLink = true, bool clean = true);
+    Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath, bool compileAndLink = true);
+    ~Shader();
+
+    Shader& operator=(const Shader& other);
+    Shader& operator=(Shader&& other) noexcept;
 
     void compileVertexShader();
     void compileFragmentShader();
     void link();
+    inline void compileAndLink() { compileVertexShader(); compileFragmentShader(); link(); }
     void use() const;
-    inline void deleteVertexShader() { glDeleteShader(vertexShader);}
-    inline void deleteFragmentShader() { glDeleteShader(fragmentShader);}
+    void deleteVertexShader();
+    void deleteFragmentShader();
+    void destroy();
     void deleteShaders();
     void deleteProgram();
-
-    /**
-     * Deletes openGL shaders, shader sources and defines
-     */
-    void clean();
 
     void setInt(const std::string& name, int val);
     void setVec2Int(const std::string& name, vec2int val);
@@ -182,9 +184,9 @@ public:
 
 protected:
 
-    unsigned int vertexShader;
-    unsigned int fragmentShader;
-    unsigned int shaderProgram;
+    unsigned int vertexShader = 0; // for OpenGL 0 is "no shader"
+    unsigned int fragmentShader = 0; // for OpenGL 0 is "no shader"
+    unsigned int shaderProgram = 0; // for OpenGL 0 is "no program"
 
     std::string vertexShaderSource;
     std::string fragmentShaderSource;

@@ -1,4 +1,5 @@
 /* This file is mostly written by ChatGPT */
+#include "screenshot.h"
 
 #include <string>
 #include <cstring> // std::memcpyc
@@ -7,24 +8,19 @@
 #include <cmath>
 #include <filesystem>
 
-
 #include <glad/glad.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h" // for writing a png file
 
-#include "shader.h"
+
 
 // Probably good tiled ChatGPT implementation ------------------------------
 bool takeScreenshot(
     std::string filename,
     size_t captureWidth,
     size_t captureHeight,
-    Shader& shader,
+    Model& model,
     unsigned int vertexArray,
-    long double zoomScale,
-    long double centerX,
-    long double centerY,
-    int maxSteps,
     size_t maxTileSize /* = 2048 */
 ) {
     // Ensure unique filename: if file exists, append _1, _2, etc.
@@ -197,14 +193,13 @@ bool takeScreenshot(
             // set uniforms:
             // - windowSize is the full capture resolution (shader uses gl_FragCoord + tileOffset divided by windowSize)
             // - tileOffset is the pixel offset of this tile in the full image
-            shader.use();
-            shader.setVec2UInt("windowSize", { static_cast<unsigned int>(captureWidth), static_cast<unsigned int>(captureHeight) });
-            shader.setVec2Double("center", { static_cast<double>(centerX), static_cast<double>(centerY) });
+            model.shader.use();
+            // model.shader.setVec2UInt("windowSize", { static_cast<unsigned int>(captureWidth), static_cast<unsigned int>(captureHeight) });
+            // model.shader.setVec2Double("center", { static_cast<double>(centerX), static_cast<double>(centerY) });
+            // model.shader.setDouble("zoomScale", static_cast<double>(zoomScale));
             const size_t xOffset = tx * maxTileSize;
             const size_t yOffset = ty * maxTileSize;
-            shader.setVec2UInt("tileOffset", { static_cast<unsigned int>(xOffset), static_cast<unsigned int>(yOffset) });
-            shader.setDouble("zoomScale", static_cast<double>(zoomScale));
-            shader.setUInt("MAX_STEPS", static_cast<unsigned int>(maxSteps));
+            model.shader.setVec2UInt("tileOffset", { static_cast<unsigned int>(xOffset), static_cast<unsigned int>(yOffset) });
 
             // draw
             glBindVertexArray(vertexArray);

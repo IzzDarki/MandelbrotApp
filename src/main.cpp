@@ -18,9 +18,10 @@
 #include "shader.h"
 #include "saved_view.h"
 #include "screenshot.h"
+#include "model/model_double_pendulum.h"
 
 static GLFWwindow* window;
-static Shader shader;
+//static Shader shader;
 
 static int windowWidth = 1080;
 static int windowHeight = 720;
@@ -32,6 +33,7 @@ static bool zoomingIn = false; // e.g. if Ctrl + Plus is pressed, this is true
 static bool zoomingOut = false;
 static bool zoomingInSlow = false;
 static bool zoomingOutSlow = false;
+static bool lockZoomFocusToCenter = false;
 static constexpr long double ZOOM_STEP = 1.1L; // single zoom step (multiplicative)
 static constexpr long double ZOOM_STEP_SMALL = 1.01L;
 static constexpr double ZOOM_PER_SECOND = 3.0; // continuous zoom (multiplicative)
@@ -41,28 +43,8 @@ static std::array<float, 10> lastFrameDeltas;
 static std::size_t lastFrameArrayIndex = 0;
 static bool autoMaxIterations = false;
 
-// Adaptive Super Sampling (Anti-Aliasing)
-static int ssMode = 2;
-static float ssMeanDiffTolerance = 0.003f;
-static float ssAbsoluteStandardErrorTolerance = 0.004f;
-static float ssRelativeStandardErrorTolerance = 0.01f;
-
-// RK45 Parameters
-static int maxIterations = 10'000;
-static uint maxSameSteps = 30u;
-static float minStepSize = 1e-12f;
-static float atolExponent = -5.0f; // corresponds to 1e-5
-static float rtolExponent = -5.0f; // corresponds to 1e-5
-
-// Double Pendulum Parameters
-static float simulationEndTime = 3.0f;
-static float v1Start = 0.0f;
-static float v2Start = 0.0f;
-static float weightConstant = 9.81f;
-static float length1 = 1.0f;
-static float length2 = 1.0f;
-static float mass1 = 1.0f;
-static float mass2 = 1.0f;
+static std::unique_ptr<Model> model = std::make_unique<DoublePendulumModel>();
+static std::unique_ptr<Model> screenshotModel; // Initialized in main
 
 // N-Body Problem Parameters
 // constexpr const uint N = 3u;
@@ -83,18 +65,19 @@ static bool ImGuiEnabled = true;
 
 // * HELPER FUNCTIONS
 
-static int getMaxIterations() {
-	//int zoomCount = -std::log(zoomScale / 3.5) / std::log(ZOOM_STEP); // how often you have zoomed in
+// static int getMaxIterations() {
+// 	//int zoomCount = -std::log(zoomScale / 3.5) / std::log(ZOOM_STEP); // how often you have zoomed in
 
-	if (autoMaxIterations) {
-		maxIterations = static_cast<int>(400 + 100L * -std::log10(zoomScale));
-		if (maxIterations < 200)
-			maxIterations = 200;
-		else if (maxIterations > 4000)
-			maxIterations = 4000;
-	}
-	return maxIterations;
-}
+// 	if (autoMaxIterations) {
+// 		maxIterations = static_cast<int>(400 + 100L * -std::log10(zoomScale));
+// 		if (maxIterations < 200)
+// 			maxIterations = 200;
+// 		else if (maxIterations > 4000)
+// 			maxIterations = 4000;
+// 	}
+// 	return maxIterations;
+// }
+
 
 static void stopContinuousZooming() {
 	zoomingIn = false;
@@ -109,6 +92,8 @@ static float calcFPSAverage() {
 		average += value;
 	return average / lastFrameDeltas.size();
 }
+
+static void applyUniformVariables(); // forward declaration
 
 // * FUNCTIONS
 /** A measure of how big the window is. Could be anything, just has to be the same everywhere including in the shader */
@@ -131,17 +116,27 @@ static ComplexNum getNumberAtCursor() {
 }
 
 static void zoom(long double factor) {
-	double mouseX, mouseY;
-	glfwGetCursorPos(window, &mouseX, &mouseY);
-	mouseY = windowHeight - mouseY;
+	long double zoomFocusX = static_cast<long double>(windowWidth) / 2.0;
+	long double zoomFocusY = static_cast<long double>(windowHeight) / 2.0;
 
+	if (!lockZoomFocusToCenter) {
+		// Get mouse pos
+		double mouseX, mouseY;
+		glfwGetCursorPos(window, &mouseX, &mouseY);
+		mouseY = windowHeight - mouseY;
+
+		// Set focus point to mouse pos
+		zoomFocusX = static_cast<long double>(mouseX);
+		zoomFocusY = static_cast<long double>(mouseY);
+	}
+	
 	auto windowSize = getWindowSize();
-	centerX += ((1.0L - factor) * zoomScale / windowSize) * (static_cast<long double>(mouseX) + 0.5L - windowWidth / 2.0L);
-	centerY += ((1.0L - factor) * zoomScale / windowSize) * (static_cast<long double>(mouseY) + 0.5L - windowHeight / 2.0);
+	centerX += ((1.0L - factor) * zoomScale / windowSize) * (zoomFocusX + 0.5L - windowWidth / 2.0L);
+	centerY += ((1.0L - factor) * zoomScale / windowSize) * (zoomFocusY + 0.5L - windowHeight / 2.0);
 	zoomScale *= factor;
 
-	shader.setDouble("zoomScale", static_cast<double>(zoomScale));
-	shader.setVec2Double("center", { centerX, centerY });
+	model->shader.setDouble("zoomScale", static_cast<double>(zoomScale));
+	model->shader.setVec2Double("center", { centerX, centerY });
 }
 
 static void jumpToView(const SavedView& savedView) {
@@ -149,8 +144,8 @@ static void jumpToView(const SavedView& savedView) {
 	centerX = savedView.getCenter().first;
 	centerY = savedView.getCenter().second;
 
-	shader.setDouble("zoomScale", static_cast<double>(zoomScale));
-	shader.setVec2Double("center", { centerX, centerY });
+	model->shader.setDouble("zoomScale", static_cast<double>(zoomScale));
+	model->shader.setVec2Double("center", { centerX, centerY });
 }
 
 static void ImGuiFrame(bool& showImGuiWindow) {
@@ -161,89 +156,17 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 	if (ImGui::Begin("Options", &showImGuiWindow, ImGuiWindowFlags_NoCollapse)) {	// Create a window and append into it.
 		ImGui::SetWindowSize({0,0}, ImGuiCond_FirstUseEver); // set window to fit contents when first creating it (ImGui saves position between sessions)
 
+		if (lockZoomFocusToCenter) {
+			ImGui::Text("Zooming locked to center of window");
+		}
 		if (ImGui::BeginTabBar("#idTabBar"))
 		{
 			if (ImGui::BeginTabItem("Info"))
 			{
 				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 				ImGui::Text("%.1f fps", static_cast<double>(calcFPSAverage()));
-
-				ImGui::Text("Display Controls: ");
-				if (ImGui::CollapsingHeader("Super Sampling (Anti-Aliasing)")) {
-					if (ImGui::Selectable("Off", (ssMode == 1))) {
-						ssMode = 1;
-						shader.define("SUPER_SAMPLING", "1");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("Adaptive", (ssMode == 0))) {
-						ssMode = 0;
-						shader.define("SUPER_SAMPLING", "0");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("2", (ssMode == 2))) {
-						ssMode = 2;
-						shader.define("SUPER_SAMPLING", "2");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("4", (ssMode == 4))) {
-						ssMode = 4;
-						shader.define("SUPER_SAMPLING", "4");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("6", (ssMode == 6))) {
-						ssMode = 6;
-						shader.define("SUPER_SAMPLING", "6");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("8", (ssMode == 8))) {
-						ssMode = 8;
-						shader.define("SUPER_SAMPLING", "8");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("12", (ssMode == 12))) {
-						ssMode = 12;
-						shader.define("SUPER_SAMPLING", "12");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("16", (ssMode == 16))) {
-						ssMode = 16;
-						shader.define("SUPER_SAMPLING", "16");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("16 (pmj)", (ssMode == 1601))) {
-						ssMode = 1601;
-						shader.define("SUPER_SAMPLING", "1601");
-						shader.recompile();
-					}
-					if (ImGui::Selectable("32 (pmj)", (ssMode == 32))) {
-						ssMode = 32;
-						shader.define("SUPER_SAMPLING", "32");
-						shader.recompile();
-					}
-
-					ImGui::Text("Adaptive Super Sampling: ");
-					if (ImGui::SliderFloat("Mean Tol", &ssMeanDiffTolerance, 0.0f, 0.4f)) {
-						shader.setFloat("MEAN_DIFF_TOL", ssMeanDiffTolerance);
-					}
-					if (ImGui::SliderFloat("Abs SE Tol", &ssAbsoluteStandardErrorTolerance, 0.0f, 0.4f)) {
-						shader.setFloat("ABS_SE_TOL", ssAbsoluteStandardErrorTolerance);
-					}
-					if (ImGui::SliderFloat("Rel SE Tol", &ssRelativeStandardErrorTolerance, 0.0f, 0.4f)) {
-						shader.setFloat("REL_SE_TOL", ssRelativeStandardErrorTolerance);
-					}
-				}
-
-				ImGui::Text("RK45 Controls: ");
-				if (ImGui::SliderInt("Max iterations", &maxIterations, 1, 100'000))
-					autoMaxIterations = false;
-				//ImGui::Checkbox("Auto max iterations", &autoMaxIterations);
-
-				if (ImGui::SliderFloat("Absolute Tolerance Exponent (10^x)", &atolExponent, -14.0, 2.0))
-					shader.setFloat("atol", std::pow(10.0f, atolExponent));
-
-				if (ImGui::SliderFloat("Relative Tolerance Exponent (10^x)", &rtolExponent, -14.0, 2.0))
-					shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
-
+				
+				model->imGuiFrame();
 
 				// ImGui::Text("Color: ");
 				// ImGui::SameLine();
@@ -288,32 +211,6 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				// }
 				// ImGui::NewLine();
 
-				ImGui::Text("Double Pendulum Controls: ");
-				if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0, 10.0)) {
-					shader.setFloat("t_end", simulationEndTime);
-				}
-				if (ImGui::SliderFloat("v1-Start", &v1Start, -1.0f, +1.0f)) {
-					shader.setFloat("v1_start", v1Start);
-				}
-				if (ImGui::SliderFloat("v2-Start", &v2Start, -1.0f, +1.0f)) {
-					shader.setFloat("v2_start", v2Start);
-				}
-				if (ImGui::SliderFloat("g", &weightConstant, -5.0, 40.0)) {
-					shader.setFloat("g", weightConstant);
-				}
-				if (ImGui::SliderFloat("l1", &length1, -1.0, 8.0)) {
-					shader.setFloat("l1", length1);
-				}
-				if (ImGui::SliderFloat("l2", &length2, -1.0, 8.0)) {
-					shader.setFloat("l2", length2);
-				}
-				if (ImGui::SliderFloat("m1", &mass1, -2.0, 8.0)) {
-					shader.setFloat("m1", mass1);
-				}
-				if (ImGui::SliderFloat("m2", &mass2, -2.0, 8.0)) {
-					shader.setFloat("m2", mass2);
-				}
-
 				// ImGui::Text("N-Body Problem Controls: ");
 				// if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0f, 0.1f)) {
 				// 	shader.setFloat("t_end", simulationEndTime);
@@ -329,14 +226,15 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				// }
 
 				// Status info
-				ImGui::Text("Zoom: %.1Le", zoomScale);
-				auto [real, imag] = getNumberAtCursor();
-				ImGui::Text("Cursor: %.10Lf + %.10Lf i", real, imag);
-				ImGui::Text("Center: %.10Lf + %.10LF i", centerX, centerY);
+				if (ImGui::CollapsingHeader("Info")) {
+					ImGui::Text("Zoom: %.1Le", zoomScale);
+					auto [real, imag] = getNumberAtCursor();
+					ImGui::Text("Cursor: %.10Lf + %.10Lf i", real, imag);
+					ImGui::Text("Center: %.10Lf + %.10LF i", centerX, centerY);
+				}
 				ImGui::EndTabItem();
 			}
-			if (ImGui::BeginTabItem("Saved views"))
-			{
+			if (ImGui::BeginTabItem("Saved views")) {
 				// Button to save current view
 				if (ImGui::Button("Save current view"))
 					SavedView::saveNew(zoomScale, {centerX, centerY});
@@ -386,41 +284,52 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				static int captureWidth  = 1920;
 				static int captureHeight = 1080;
 				static int maxTileSize = 2048;
-				static float thresholdFactor = 0.01f;
 
 				ImGui::InputText("Filename", screenshotFilename, sizeof(screenshotFilename));
 				ImGui::InputInt("Width", &captureWidth);
 				ImGui::InputInt("Height", &captureHeight);
 				ImGui::InputInt("Max Tile Size", &maxTileSize);
-				ImGui::SliderFloat("Threshold Factor", &thresholdFactor, 1e-10f, 500.0f);
+
+				ImGui::Separator();
+
+				screenshotModel->imGuiScreenshotFrame();
 
 				if (ImGui::Button("Take Screenshot")) {
-					// Set low tolerance for rk45
-					shader.setFloat("atol", 1e-9f);
-					shader.setFloat("rtol", 1e-9f);
-					shader.setUInt("MAX_SAME_STEPS", 50u);
-					shader.setFloat("MIN_TAU", 1e-25f);
-					shader.setFloat("superSamplingThresholdFactor", thresholdFactor);
+					
+					// Replace the screenshot model if the subclass type changed in the live model
+					if (typeid(*model) != typeid(*screenshotModel)) {
+						std::unique_ptr<Model> oldScreenshotModel = std::move(screenshotModel);
+						screenshotModel = model->clone();
+						screenshotModel->makeScreenshotModel(*oldScreenshotModel);
+					}
+
+					// Bring screenshot model up to date (e.g. changed simulationEndTime)
+					screenshotModel->updateWithLiveModel(*model); // probably not necessary if screenshotModel was cloned in the if statement above, but can't hurt
+
+					screenshotModel->initDefines();
+
+					screenshotModel->shader.compileAndLink();
+					screenshotModel->shader.use();
+
+					// Apply the screenshots uniform variables
+					applyUniformVariables();
+					screenshotModel->applyUniformVariables();
 
 					// Take the screenshot
 					takeScreenshot(
 						screenshotFilename,
 						static_cast<size_t>(std::max(captureWidth, 0)),
 						static_cast<size_t>(std::max(captureHeight, 0)),
-						shader,
+						*screenshotModel,
 						vertexArray,
-						zoomScale,
-						centerX,
-						centerY,
-						100'000, // real-time-app uses getMaxIterations()
 						static_cast<size_t>(maxTileSize)
 					);
 
-					// Reset everything that was changed before calling takeScreenshot
-					shader.setFloat("atol", std::pow(10.0f, atolExponent));
-					shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
-					shader.setUInt("MAX_SAME_STEPS", maxSameSteps);
-					shader.setFloat("MIN_TAU", minStepSize);
+					// // Reset everything that was changed before calling takeScreenshot
+					// model->shader.setFloat("atol", std::pow(10.0f, atolExponent));
+					// model->shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
+					// model->shader.setUInt("MAX_SAME_STEPS", maxSameSteps);
+					// model->shader.setFloat("MIN_TAU", minStepSize);
 				}
 
 				ImGui::EndTabItem();
@@ -431,6 +340,7 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				ImGui::Text("Press Ctrl + Esc or Pause to exit the app");
 				ImGui::Text("Press Ctrl + Plus/Minus to zoom in/out (numpad works too)");
 				ImGui::Text("Use Mouse Wheel to zoom in/out");
+				// TODO Write all controls here
 				ImGui::EndTabItem();
 			}
 			ImGui::EndTabBar();
@@ -449,7 +359,7 @@ static void windowResizeCallback(GLFWwindow* _window, int width, int height) {
 	windowHeight = height;
 	glViewport(0, 0, width, height);
 
-	shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
+	model->shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
 }  
 
 static void debugCallbackOpenGL(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam) {
@@ -467,7 +377,6 @@ static void mouseScrollCallbackGLFW(GLFWwindow* _window, double xOffset, double 
 	(void)_window; // suppress unused warning
 	(void)xOffset; // suppress unused warning
 
-	// GLFW_KEY_LEFT_SHIFT or GLFW_KEY_RIGHT_SHIFT
 	bool shiftPressed = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
 		|| (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
 
@@ -496,8 +405,14 @@ static void keyCallbackGLFW(GLFWwindow* _window, int key, int scancode, int acti
 	// Solo Keys
 	switch (key) {
 		case GLFW_KEY_PAUSE:
-			if (action == GLFW_PRESS)
+			if (action == GLFW_PRESS) {
 				glfwSetWindowShouldClose(_window, true);
+			}
+			break;
+		case GLFW_KEY_C:
+			if (action == GLFW_PRESS) {
+				
+			}
 			break;
 	}
 
@@ -529,6 +444,12 @@ static void keyCallbackGLFW(GLFWwindow* _window, int key, int scancode, int acti
 	// Ctrl + Key without shift
 	if (ctrl && !shift) {
 		switch (key) {
+			case GLFW_KEY_C:
+				if (action == GLFW_PRESS) {
+					lockZoomFocusToCenter = !lockZoomFocusToCenter;
+				}
+				break;
+
 			case GLFW_KEY_KP_ADD: // Numpad +
 			case GLFW_KEY_EQUAL:  // Regular +
 				if (action == GLFW_PRESS) {
@@ -568,6 +489,20 @@ static void keyCallbackGLFW(GLFWwindow* _window, int key, int scancode, int acti
 
 }
 
+static void mouseButtonCallbackGLFW(GLFWwindow* _window, int button, int action, int mods) {
+	(void)_window;
+
+	bool ctrl = (mods & GLFW_MOD_CONTROL) != 0;
+	// bool shift = (mods & GLFW_MOD_SHIFT) != 0;
+
+    if (ctrl && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		const auto num = getNumberAtCursor();
+        centerX = num.first;
+		centerY = num.second;
+		model->shader.setVec2Double("center", { centerX, centerY });
+	}
+}
+
 
 // * INIT FUNCTIONS
 
@@ -597,6 +532,7 @@ static bool initGLFW() {
 	glfwSetFramebufferSizeCallback(window, windowResizeCallback);
 	glfwSetKeyCallback(window, keyCallbackGLFW);
 	glfwSetScrollCallback(window, mouseScrollCallbackGLFW);
+	glfwSetMouseButtonCallback(window, mouseButtonCallbackGLFW);
 
 	return true;
 }
@@ -657,34 +593,14 @@ static void initImGui() {
 		std::cout << "Error: Font for ImGui could not be loaded" << std::endl;
 }
 
-static void initUniformVariables() {
-	// Adaptive Super Sampling (Anti-Aliasing)
-	shader.setFloat("MEAN_DIFF_TOL", ssMeanDiffTolerance);
-	shader.setFloat("ABS_SE_TOL", ssAbsoluteStandardErrorTolerance);
-	shader.setFloat("REL_SE_TOL", ssRelativeStandardErrorTolerance);
-
+static void applyUniformVariables() {
 	// Coordinate Mapping
-	shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
-	shader.setDouble("zoomScale", static_cast<double>(zoomScale));
-	shader.setVec2Double("center", { centerX, centerY });
-	shader.setVec2UInt("tileOffset", { 0u, 0u }); // only needed for tiled screenshot rendering
-	
-	// RK45
-	shader.setUInt("MAX_STEPS", static_cast<unsigned int>(getMaxIterations()));
-	shader.setUInt("MAX_SAME_STEPS", maxSameSteps);
-	shader.setFloat("MIN_TAU", minStepSize);
-	shader.setFloat("atol", std::pow(10.0f, atolExponent));
-	shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
+	model->shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
+	model->shader.setDouble("zoomScale", static_cast<double>(zoomScale));
+	model->shader.setVec2Double("center", { centerX, centerY });
+	model->shader.setVec2UInt("tileOffset", { 0u, 0u }); // only needed for tiled screenshot rendering
 
-	// Double Pendulum
-	shader.setFloat("t_end", simulationEndTime);
-	shader.setFloat("v1_start", v1Start);
-	shader.setFloat("v2_start", v2Start);
-	shader.setFloat("g", weightConstant);
-	shader.setFloat("l1", length1);
-	shader.setFloat("l2", length2);
-	shader.setFloat("m1", mass1);
-	shader.setFloat("m2", mass2);
+	model->applyUniformVariables();
 
 	// N Body Problem
 	// shader.setFloat("t_end", simulationEndTime);
@@ -692,15 +608,15 @@ static void initUniformVariables() {
 	// shader.setFloatArray("m", masses, N);
 }
 
-static void initDefines() {
-	shader.define("SUPER_SAMPLING", std::to_string(ssMode)); // off
-}
-
 
 // * MAIN FUNCTION
 
 int main()
 {
+	// Initialize screenshotModel
+	screenshotModel = model->clone();
+	screenshotModel->makeScreenshotModel(); // e. g. set lower rk45 tolerance to achieve better quality screenshots than the live view
+
 	SavedView::initFromFile();
 
 	if (!initGLFW())
@@ -710,18 +626,16 @@ int main()
 	initImGui();
 
 	// Shader
-	//shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
-	shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false); // Compile and link shader, but keep sources, ...
+	// shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
+	// shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false); // Compile and link shader, but keep sources, ...
 	// shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_n_body_problem.glsl", false, false); // Compile and link shader, but keep sources, ...
 	// define default values 
-	//shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
-	//shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
-	//shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, codeCalculateNextSequenceTerm);
-	initDefines();
-	shader.compileVertexShader();
-	shader.compileFragmentShader();
-	shader.link();
-	shader.use(); // Needs to be called before setting uniform variables
+	// shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
+	// shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
+	// shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, codeCalculateNextSequenceTerm);
+	model->initDefines();
+	model->shader.compileAndLink();
+	model->shader.use(); // Needs to be called before setting uniform variables
 
 	float vertices[] = {
 		-1.0f, -1.0f,	// bottom left
@@ -762,7 +676,7 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
-	initUniformVariables();
+	applyUniformVariables();
 
 	// Render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -775,7 +689,7 @@ int main()
 		}
 
 		// use program (should be called in the loop, since other parts could use other programs in the meantime, according to ChatGPT)
-		shader.use();
+		model->shader.use();
 	
 		if (ImGuiEnabled)
 			ImGui::Render();
@@ -825,8 +739,7 @@ int main()
 	glDeleteVertexArrays(1, &vertexArray);
 	glDeleteBuffers(1, &vertexBuffer);
 	glDeleteBuffers(1, &elementBuffer);
-	shader.clean();
-	shader.deleteProgram();
+	model->shader.destroy(); // destroy before destroying the OpenGLs context
 
 	ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
