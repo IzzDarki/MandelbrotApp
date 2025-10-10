@@ -1,0 +1,9 @@
+leak:FcPatternObjectInsertElt
+leak:FcFontSetList
+leak:libfontconfig.so
+leak:libpangoft2
+leak:libpangocairo
+leak:libdecor
+leak:libnvidia-glcore
+leak:libnvidia-glsi
+leak:libwayland-client

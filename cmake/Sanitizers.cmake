@@ -54,4 +54,32 @@ function(enable_sanitizers project_name)
       target_link_options(${project_name} PUBLIC "$<$<CONFIG:Debug>:-fsanitize=${LIST_OF_SANITIZERS}>")
     endif()
   endif()
+
+  # LeakSanitizer suppressions
+  if("leak" IN_LIST SANITIZERS)
+    # Path to the suppression file (in your source or build directory)
+    set(LSAN_SUPPRESSIONS_FILE "${CMAKE_SOURCE_DIR}/cmake/lsan.supp")
+
+    # Only set if the file exists — avoids warnings in builds without it
+    if(EXISTS "${LSAN_SUPPRESSIONS_FILE}")
+      message(STATUS "Using LeakSanitizer suppressions from ${LSAN_SUPPRESSIONS_FILE}")
+      set(LSAN_ENV "LSAN_OPTIONS=suppressions=${LSAN_SUPPRESSIONS_FILE}:print_suppressions=0")
+      set_property(TARGET ${project_name} APPEND PROPERTY VS_DEBUGGER_ENVIRONMENT "${LSAN_ENV}")
+      set_target_properties(${project_name} PROPERTIES
+        VS_DEBUGGER_ENVIRONMENT "${LSAN_ENV}"
+      )
+
+      # For normal runs (Linux/macOS)
+      add_custom_target(run_${project_name}
+        COMMAND ${LSAN_ENV} $<TARGET_FILE:${project_name}>
+        DEPENDS ${project_name}
+        WORKING_DIRECTORY ${CMAKE_PROJECT_DIR}
+        COMMENT "Running ${project_name} with LeakSanitizer suppressions"
+      )
+    else()
+      message(STATUS "LeakSanitizer running without suppressions, since no file was given at ${LSAN_SUPPRESSIONS_FILE}")
+    endif()
+  endif()
+
+
 endfunction()
