@@ -1,5 +1,9 @@
 #include "model_super_sampling.h"
 
+#include <algorithm> // for std::find_if
+#include <utility> // for std::pair
+#include <array> // for std::array
+
 #include <ImGui/imgui.h>
 
 void SuperSamplingModel::initDefines() {
@@ -17,67 +21,53 @@ void SuperSamplingModel::applyUniformVariables() {
 }
 
 void SuperSamplingModel::imGuiFrameHelper() {
-    if (ImGui::CollapsingHeader("Super Sampling (Anti-Aliasing)")) {
-        if (ImGui::Selectable("Adaptive", (ssMode == SuperSamplingModel::ADAPTIVE))) {
-            ssMode = SuperSamplingModel::ADAPTIVE;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::ADAPTIVE));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("Off", (ssMode == SuperSamplingModel::OFF))) {
-            ssMode = SuperSamplingModel::OFF;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::OFF));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("2", (ssMode == SuperSamplingModel::_2))) {
-            ssMode = SuperSamplingModel::_2;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_2));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("4", (ssMode == SuperSamplingModel::_4))) {
-            ssMode = SuperSamplingModel::_4;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_4));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("6", (ssMode == SuperSamplingModel::_6))) {
-            ssMode = SuperSamplingModel::_6;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_6));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("8", (ssMode == SuperSamplingModel::_8))) {
-            ssMode = SuperSamplingModel::_8;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_8));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("12", (ssMode == SuperSamplingModel::_12))) {
-            ssMode = SuperSamplingModel::_12;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_12));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("16", (ssMode == SuperSamplingModel::_16))) {
-            ssMode = SuperSamplingModel::_16;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_16));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("16 (pmj)", (ssMode == SuperSamplingModel::_16_PMJ))) {
-            ssMode = SuperSamplingModel::_16_PMJ;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_16_PMJ));
-            this->shader.recompile();
-        }
-        if (ImGui::Selectable("32 (pmj)", (ssMode == SuperSamplingModel::_32_PMJ))) {
-            ssMode = SuperSamplingModel::_32_PMJ;
-            this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_32_PMJ));
-            this->shader.recompile();
+    static const std::array<std::pair<const char*, SuperSamplingModel::Mode>, 10> options = {{
+        std::make_pair("Adaptive", SuperSamplingModel::ADAPTIVE),
+        std::make_pair("Off", SuperSamplingModel::OFF),
+        std::make_pair("2", SuperSamplingModel::_2),
+        std::make_pair("4", SuperSamplingModel::_4),
+        std::make_pair("6", SuperSamplingModel::_6),
+        std::make_pair("8", SuperSamplingModel::_8),
+        std::make_pair("12", SuperSamplingModel::_12),
+        std::make_pair("16", SuperSamplingModel::_16),
+        std::make_pair("16 (pmj)", SuperSamplingModel::_16_PMJ),
+        std::make_pair("32 (pmj)", SuperSamplingModel::_32_PMJ)
+    }};
+
+    
+    if (ImGui::CollapsingHeader("Super Sampling (Anti-Aliasing)", ImGuiTreeNodeFlags_DefaultOpen)) {
+        auto it = std::find_if(options.begin(), options.end(),
+            [currentSSMode = this->ssMode](const auto& p) {
+                return p.second == currentSSMode;
+            });
+        long index = (it != options.end()) ? std::distance(options.begin(), it) : -1L;
+
+        if (ImGui::BeginCombo("Mode", options[static_cast<unsigned long>(index)].first)) {
+            for (const auto& option : options) {
+                bool isSelected = (this->ssMode == option.second);
+                if (ImGui::Selectable(option.first, isSelected)) {
+                    this->ssMode = option.second;
+                    this->shader.define("SUPER_SAMPLING", std::to_string(this->ssMode));
+                    this->shader.recompile();
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
         }
 
-        ImGui::Text("Adaptive Super Sampling: ");
-        if (ImGui::SliderFloat("Mean Tol", &ssMeanDiffTolerance, 0.0f, 0.4f)) {
-            this->shader.setFloat("MEAN_DIFF_TOL", ssMeanDiffTolerance);
-        }
-        if (ImGui::SliderFloat("Abs SE Tol", &ssAbsoluteStandardErrorTolerance, 0.0f, 0.4f)) {
-            this->shader.setFloat("ABS_SE_TOL", ssAbsoluteStandardErrorTolerance);
-        }
-        if (ImGui::SliderFloat("Rel SE Tol", &ssRelativeStandardErrorTolerance, 0.0f, 0.4f)) {
-            this->shader.setFloat("REL_SE_TOL", ssRelativeStandardErrorTolerance);
+        if (this->ssMode == SuperSamplingModel::ADAPTIVE) {
+            ImGui::Text("Adaptive Super Sampling: ");
+            if (ImGui::SliderFloat("Mean Tol", &ssMeanDiffTolerance, 0.0f, 0.4f)) {
+                this->shader.setFloat("MEAN_DIFF_TOL", ssMeanDiffTolerance);
+            }
+            if (ImGui::SliderFloat("Abs SE Tol", &ssAbsoluteStandardErrorTolerance, 0.0f, 0.4f)) {
+                this->shader.setFloat("ABS_SE_TOL", ssAbsoluteStandardErrorTolerance);
+            }
+            if (ImGui::SliderFloat("Rel SE Tol", &ssRelativeStandardErrorTolerance, 0.0f, 0.4f)) {
+                this->shader.setFloat("REL_SE_TOL", ssRelativeStandardErrorTolerance);
+            }
         }
     }
 }

@@ -8,9 +8,6 @@
 
 class Model {
 public:
-    std::string name;
-    Shader shader;
-
     Model(const std::string& _name, Shader&& _shader) : name(_name), shader(std::move(_shader)) { }
     Model(const Model& other) : name(other.name), shader(other.shader) { }
     Model(Model&& other) = delete;
@@ -44,6 +41,10 @@ public:
     virtual void updateWithLiveModel(const Model& liveModel);
 
     virtual ~Model();
+
+public:
+    std::string name;
+    Shader shader;
 };
 
 #endif

@@ -24,14 +24,14 @@ void RK45Model::imGuiFrameHelper() {
             this->shader.setUInt("MAX_STEPS", static_cast<uint>(this->maxSteps));
         }
 
-        ImGui::Text("Absolute Tolerance Exponent (10^_)");
+        ImGui::Text("Absolute Tolerance Exponent");
         if (ImGui::SliderFloat("##Absolute Tolerance Exponent (10^_)", &this->atolExponent, -14.0, 2.0)) {
             this->shader.setFloat("atol", std::pow(10.0f, this->atolExponent));
         }
         ImGui::SameLine();
         ImGui::Text(std::format("{:.1e}", std::pow(10.0f, this->atolExponent)).c_str());
 
-        ImGui::Text("Relative Tolerance Exponent (10^_)");
+        ImGui::Text("Relative Tolerance Exponent");
         if (ImGui::SliderFloat("##Relative Tolerance Exponent (10^_)", &this->rtolExponent, -14.0, 2.0)) {
             this->shader.setFloat("rtol", std::pow(10.0f, this->rtolExponent));
         }
