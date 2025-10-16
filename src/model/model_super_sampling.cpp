@@ -3,14 +3,23 @@
 #include <algorithm> // for std::find_if
 #include <utility> // for std::pair
 #include <array> // for std::array
+#include <string> // for stoi
 
 #include <ImGui/imgui.h>
 
-void SuperSamplingModel::initDefines() {
-    this->Model::initDefines();
 
-    this->shader.define("SUPER_SAMPLING", std::to_string(ssMode));
+SuperSamplingModel::SuperSamplingModel(const std::string& _name, Shader&& _shader)
+    : Model(_name, std::move(_shader))
+{
+    this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_2));
 }
+
+SuperSamplingModel::SuperSamplingModel(const SuperSamplingModel& other)
+    : Model(other),
+      ssMeanDiffTolerance(other.ssMeanDiffTolerance),
+      ssAbsoluteStandardErrorTolerance(other.ssAbsoluteStandardErrorTolerance),
+      ssRelativeStandardErrorTolerance(other.ssRelativeStandardErrorTolerance)
+{ }
 
 void SuperSamplingModel::applyUniformVariables() {
     this->Model::applyUniformVariables();
@@ -36,19 +45,19 @@ void SuperSamplingModel::imGuiFrameHelper() {
 
     
     if (ImGui::CollapsingHeader("Super Sampling (Anti-Aliasing)", ImGuiTreeNodeFlags_DefaultOpen)) {
+        const auto currentSSMode = this->getSSMode();
         auto it = std::find_if(options.begin(), options.end(),
-            [currentSSMode = this->ssMode](const auto& p) {
+            [currentSSMode](const auto& p) {
                 return p.second == currentSSMode;
             });
         long index = (it != options.end()) ? std::distance(options.begin(), it) : -1L;
 
         if (ImGui::BeginCombo("Mode", options[static_cast<unsigned long>(index)].first)) {
             for (const auto& option : options) {
-                bool isSelected = (this->ssMode == option.second);
+                bool isSelected = (currentSSMode == option.second);
                 if (ImGui::Selectable(option.first, isSelected)) {
-                    this->ssMode = option.second;
-                    this->shader.define("SUPER_SAMPLING", std::to_string(this->ssMode));
-                    this->shader.recompile();
+                    this->setSSMode(option.second);
+                    this->shader.recompile(); // needed, because super sampling mode is a #define
                 }
                 if (isSelected) {
                     ImGui::SetItemDefaultFocus();
@@ -57,7 +66,7 @@ void SuperSamplingModel::imGuiFrameHelper() {
             ImGui::EndCombo();
         }
 
-        if (this->ssMode == SuperSamplingModel::ADAPTIVE) {
+        if (currentSSMode == SuperSamplingModel::ADAPTIVE) {
             ImGui::Text("Adaptive Super Sampling: ");
             if (ImGui::SliderFloat("Mean Tol", &ssMeanDiffTolerance, 0.0f, 0.4f)) {
                 this->shader.setFloat("MEAN_DIFF_TOL", ssMeanDiffTolerance);
@@ -89,10 +98,10 @@ std::unique_ptr<Model> SuperSamplingModel::clone() const {
 }
 
 void SuperSamplingModel::setDefaultScreenshotParameters() {
-    this->ssMode = SuperSamplingModel::_32_PMJ;
     this->ssMeanDiffTolerance = 0.003f;
     this->ssAbsoluteStandardErrorTolerance = 0.004f;
     this->ssRelativeStandardErrorTolerance = 0.01f;
+    this->setSSMode(SuperSamplingModel::_32_PMJ);
 }
 
 void SuperSamplingModel::makeScreenshotModel() {
@@ -110,8 +119,17 @@ void SuperSamplingModel::makeScreenshotModel(const Model& otherScreenshotModel) 
         return;
     }
 
-    this->ssMode = otherScreenshotSSModel->ssMode;
     this->ssMeanDiffTolerance = otherScreenshotSSModel->ssMeanDiffTolerance;
     this->ssAbsoluteStandardErrorTolerance = otherScreenshotSSModel->ssAbsoluteStandardErrorTolerance;
     this->ssRelativeStandardErrorTolerance = otherScreenshotSSModel->ssRelativeStandardErrorTolerance;
+    this->setSSMode(otherScreenshotSSModel->getSSMode());
+}
+
+
+SuperSamplingModel::Mode SuperSamplingModel::getSSMode() const {
+    return static_cast<SuperSamplingModel::Mode>(stoi(this->shader.getDefine("SUPER_SAMPLING"))); // stoi = string to int
+}
+
+void SuperSamplingModel::setSSMode(SuperSamplingModel::Mode mode) {
+    this->shader.define("SUPER_SAMPLING", std::to_string(mode));
 }

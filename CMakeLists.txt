@@ -18,6 +18,7 @@ add_executable(MandelbrotApp
     src/model/model_rk45.cpp
     src/model/model_super_sampling.cpp
     src/model/model_double_pendulum.cpp
+    src/model/model_mandelbrot.cpp
 )
 
 # optional: headers for IDE visibility
@@ -31,6 +32,7 @@ target_sources(MandelbrotApp PRIVATE
     src/model/model_rk45.h
     src/model/model_super_sampling.h
     src/model/model_double_pendulum.h
+    src/model/model_mandelbrot.h
 )
 
 # C++ standard

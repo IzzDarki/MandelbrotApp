@@ -7,15 +7,15 @@
 DoublePendulumModel::DoublePendulumModel() :
     Model(
         "Double Pendulum",
-        Shader("../res/vertex_shader.glsl", "../res/fragment_shader_double_pendulum.glsl", false) // Don't compile and link shader (not responsibility of the model)
+        Shader("../res/vertex_shader.glsl", "../res/fragment_shader_double_pendulum.glsl") // Don't compile and link shader (not responsibility of the model)
     ),
     SuperSamplingModel(
         "Double Pendulum",
-        Shader("../res/vertex_shader.glsl", "../res/fragment_shader_double_pendulum.glsl", false) // Don't compile and link shader (not responsibility of the model)
+        Shader("../res/vertex_shader.glsl", "../res/fragment_shader_double_pendulum.glsl") // Don't compile and link shader (not responsibility of the model)
     ),
     RK45Model(
         "Double Pendulum",
-        Shader("../res/vertex_shader.glsl", "../res/fragment_shader_double_pendulum.glsl", false) // Don't compile and link shader (not responsibility of the model)
+        Shader("../res/vertex_shader.glsl", "../res/fragment_shader_double_pendulum.glsl") // Don't compile and link shader (not responsibility of the model)
     )
     { }
 
@@ -32,11 +32,6 @@ DoublePendulumModel::DoublePendulumModel(const DoublePendulumModel& other)
       mass1(other.mass1),
       mass2(other.mass2)
     { }
-
-void DoublePendulumModel::initDefines() {
-    this->SuperSamplingModel::initDefines();
-    this->RK45Model::initDefines();
-}
 
 void DoublePendulumModel::applyUniformVariables() {
     this->SuperSamplingModel::applyUniformVariables();

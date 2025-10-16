@@ -19,6 +19,7 @@
 #include "saved_view.h"
 #include "screenshot.h"
 #include "model/model_double_pendulum.h"
+#include "model/model_mandelbrot.h"
 
 static GLFWwindow* window;
 //static Shader shader;
@@ -44,7 +45,7 @@ static std::size_t lastFrameArrayIndex = 0;
 static bool autoMaxIterations = false;
 
 static std::unique_ptr<Model> model = std::make_unique<DoublePendulumModel>();
-static std::unique_ptr<Model> screenshotModel; // Initialized in main
+static std::unique_ptr<Model> screenshotModel; // Initialized in main (always kept in a state, where at least the vertex shader is compiled)
 
 // N-Body Problem Parameters
 // constexpr const uint N = 3u;
@@ -53,15 +54,6 @@ static std::unique_ptr<Model> screenshotModel; // Initialized in main
 // static float masses[N] = { 1.0f, 0.9f, 1.2f };
 
 static bool ImGuiEnabled = true;
-
-// static const char* FLOW_COLOR_TYPE = "FLOW_COLOR_TYPE";
-// static const char* CODE_DIVERGENCE_CRITERION = "CODE_DIVERGENCE_CRITERION";
-// static const char* CODE_CALCULATE_NEXT_SEQUENCE_TERM = "CODE_CALCULATE_NEXT_SEQUENCE_TERM";
-
-// static const char* DEFAULT_FLOW_COLOR_TYPE = "3";
-// static char codeDivergenceCriterion[1000] = "real*real + imag*imag > 4";
-// static char codeCalculateNextSequenceTerm[2000] = "real = real*real - imag*imag + startReal;\nimag = 2 * realTemp * imag + startImag;";
-
 
 // * HELPER FUNCTIONS
 
@@ -93,7 +85,7 @@ static float calcFPSAverage() {
 	return average / lastFrameDeltas.size();
 }
 
-static void applyUniformVariables(); // forward declaration
+static void applyGlobalUniformVariables(Model& model); // forward declaration
 
 // * FUNCTIONS
 /** A measure of how big the window is. Could be anything, just has to be the same everywhere including in the shader */
@@ -168,48 +160,7 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				
 				model->imGuiFrame();
 
-				// ImGui::Text("Color: ");
-				// ImGui::SameLine();
-				// if (ImGui::SmallButton("RGB")) {
-				// 	shader.define(FLOW_COLOR_TYPE, "0");
-				// 	shader.recompile();
-				// }
-				// ImGui::SameLine();
-				// if (ImGui::SmallButton("Smooth")) {
-				// 	shader.define(FLOW_COLOR_TYPE, "3");
-				// 	shader.recompile();
-				// }
 				
-				// // new line
-				// if (ImGui::SmallButton("Black/White")) {
-				// 	shader.define(FLOW_COLOR_TYPE, "1");
-				// 	shader.recompile();
-				// }
-				// ImGui::SameLine();
-				// if (ImGui::SmallButton("Glowing")) {
-				// 	shader.define(FLOW_COLOR_TYPE, "2");
-				// 	shader.recompile();
-				// }
-
-				// static int colorAccuracy = 10;
-				// if (ImGui::DragInt("Color accuracy", &colorAccuracy, 1.0f, 1, 1'000))
-				// 	shader.setUInt("colorAccuracy", (uint)colorAccuracy);
-				// ImGui::NewLine();
-
-				// Sequence
-				// ImGui::Text("Sequence code (1. Divergence criterion, 2. Code to calculate next term in sequence)");
-    			// ImGui::InputTextMultiline("1", codeDivergenceCriterion, IM_ARRAYSIZE(codeDivergenceCriterion),
-				// 	ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2.5f)
-				// );
-				// ImGui::InputTextMultiline("2", codeCalculateNextSequenceTerm, IM_ARRAYSIZE(codeCalculateNextSequenceTerm),
-				// 	ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.5f)
-				// );
-				// if (ImGui::SmallButton("Apply")) {
-				// 	shader.define(CODE_DIVERGENCE_CRITERION, std::string(codeDivergenceCriterion));
-				// 	shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, std::string(codeCalculateNextSequenceTerm));
-				// 	shader.recompile();
-				// }
-				// ImGui::NewLine();
 
 				// ImGui::Text("N-Body Problem Controls: ");
 				// if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0f, 0.1f)) {
@@ -292,27 +243,35 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 
 				ImGui::Separator();
 
+				// Replace the screenshot model if the subclass type changed in the live model
+				if (typeid(*model) != typeid(*screenshotModel)) {
+					std::unique_ptr<Model> oldScreenshotModel = std::move(screenshotModel);
+					screenshotModel = model->clone();
+					screenshotModel->makeScreenshotModel(*oldScreenshotModel);
+					screenshotModel->shader.compileVertexShader(); // Needed, because recompile does not recompile the vertex shader
+					
+					// Assertion as sanity-check (maybe remove this at some point)
+					if (typeid(*model) != typeid(*screenshotModel)) {
+						std::cerr << "This should never not happen " << __FILE__ << " line " << __LINE__
+							<< "typeid(*model) is " << typeid(*model).name()
+							<< ", typeid(*screenshotModel) is " << typeid(*screenshotModel).name() << std::endl;
+					}
+					std::cout << "Switched screenshot model" << std::endl;
+				}
+
+				// Show ImGui UI for screenshot
 				screenshotModel->imGuiScreenshotFrame();
 
-				if (ImGui::Button("Take Screenshot")) {
-					
-					// Replace the screenshot model if the subclass type changed in the live model
-					if (typeid(*model) != typeid(*screenshotModel)) {
-						std::unique_ptr<Model> oldScreenshotModel = std::move(screenshotModel);
-						screenshotModel = model->clone();
-						screenshotModel->makeScreenshotModel(*oldScreenshotModel);
-					}
+				ImGui::Separator();
 
+				if (ImGui::Button("Take Screenshot")) {
 					// Bring screenshot model up to date (e.g. changed simulationEndTime)
 					screenshotModel->updateWithLiveModel(*model); // probably not necessary if screenshotModel was cloned in the if statement above, but can't hurt
-
-					screenshotModel->initDefines();
-
-					screenshotModel->shader.compileAndLink();
-					screenshotModel->shader.use();
+					screenshotModel->shader.recompile(); // only needed when updateWithLiveModel changes any defines, but recompiling should not take too much effort
+														 // recompile calls Shader::use()
 
 					// Apply the screenshots uniform variables
-					applyUniformVariables();
+					applyGlobalUniformVariables(*screenshotModel);
 					screenshotModel->applyUniformVariables();
 
 					// Take the screenshot
@@ -324,12 +283,6 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 						vertexArray,
 						static_cast<size_t>(maxTileSize)
 					);
-
-					// // Reset everything that was changed before calling takeScreenshot
-					// model->shader.setFloat("atol", std::pow(10.0f, atolExponent));
-					// model->shader.setFloat("rtol", std::pow(10.0f, rtolExponent));
-					// model->shader.setUInt("MAX_SAME_STEPS", maxSameSteps);
-					// model->shader.setFloat("MIN_TAU", minStepSize);
 				}
 
 				ImGui::EndTabItem();
@@ -593,14 +546,12 @@ static void initImGui() {
 		std::cout << "Error: Font for ImGui could not be loaded" << std::endl;
 }
 
-static void applyUniformVariables() {
+static void applyGlobalUniformVariables(Model& usedModel) {
 	// Coordinate Mapping
-	model->shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
-	model->shader.setDouble("zoomScale", static_cast<double>(zoomScale));
-	model->shader.setVec2Double("center", { centerX, centerY });
-	model->shader.setVec2UInt("tileOffset", { 0u, 0u }); // only needed for tiled screenshot rendering
-
-	model->applyUniformVariables();
+	usedModel.shader.setVec2UInt("windowSize", { windowWidth, windowHeight });
+	usedModel.shader.setDouble("zoomScale", static_cast<double>(zoomScale));
+	usedModel.shader.setVec2Double("center", { centerX, centerY });
+	usedModel.shader.setVec2UInt("tileOffset", { 0u, 0u }); // only needed for tiled screenshot rendering
 
 	// N Body Problem
 	// shader.setFloat("t_end", simulationEndTime);
@@ -625,15 +576,7 @@ int main()
 		return -1;
 	initImGui();
 
-	// Shader
-	// shader = { "../res/vertex_shader.glsl", + "../res/fragment_shader.glsl", false, false }; // Compile and link shader, but keep sources, ...
-	// shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_double_pendulum.glsl", false, false); // Compile and link shader, but keep sources, ...
-	// shader = Shader("../res/vertex_shader.glsl", + "../res/fragment_shader_n_body_problem.glsl", false, false); // Compile and link shader, but keep sources, ...
-	// define default values 
-	// shader.define(FLOW_COLOR_TYPE, DEFAULT_FLOW_COLOR_TYPE);
-	// shader.define(CODE_DIVERGENCE_CRITERION, codeDivergenceCriterion);
-	// shader.define(CODE_CALCULATE_NEXT_SEQUENCE_TERM, codeCalculateNextSequenceTerm);
-	model->initDefines();
+	screenshotModel->shader.compileVertexShader(); // screenshotModel must always have the vertex shader compiled
 	model->shader.compileAndLink();
 	model->shader.use(); // Needs to be called before setting uniform variables
 
@@ -676,7 +619,8 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
-	applyUniformVariables();
+	applyGlobalUniformVariables(*model);
+	model->applyUniformVariables();
 
 	// Render loop
 	while (!glfwWindowShouldClose(window)) {

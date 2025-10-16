@@ -15,8 +15,6 @@ public:
     Model& operator=(const Model& other) = delete;
     Model& operator=(Model&& other) = delete;
 
-    virtual void initDefines();
-
     virtual void applyUniformVariables();
 
     virtual void imGuiFrame();

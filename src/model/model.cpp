@@ -1,6 +1,5 @@
 #include "model.h"
 
-void Model::initDefines() { }
 void Model::applyUniformVariables() { }
 void Model::imGuiFrame() { }
 void Model::imGuiScreenshotFrame() { }

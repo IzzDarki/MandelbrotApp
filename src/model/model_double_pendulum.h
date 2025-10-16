@@ -28,7 +28,6 @@ public:
     DoublePendulumModel& operator=(const DoublePendulumModel& other) = delete;
     DoublePendulumModel& operator=(DoublePendulumModel&& other) = delete;
 
-    virtual void initDefines() override;
     virtual void applyUniformVariables() override;
     virtual void imGuiFrame() override;
     virtual void imGuiScreenshotFrame() override;

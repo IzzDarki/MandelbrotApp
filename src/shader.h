@@ -84,12 +84,12 @@ public:
     Shader(Shader&& other) noexcept;
     /**
      * Creates a Shader
+     * Note, that the constructor does not compile or link the shaders.
      * 
      * @param vertexShaderSource Vertex shader source
      * @param fragmentShaderSource Fragment shader source
-     * @param compileAndLink When `true` the shader sources will be compiled and linked instantly, otherwise this can be done manually later (default is `true`)
      */
-    Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath, bool compileAndLink = true);
+    Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath);
     ~Shader();
 
     Shader& operator=(const Shader& other);
@@ -179,6 +179,10 @@ public:
      * @param value The string to replace with
      */
     inline void define(const std::string& name, const std::string& value) { defines[name] = value; }
+
+    inline const std::string& getDefine(const std::string& name) const {
+        return defines.at(name);
+    }
 
     void recompile();
 

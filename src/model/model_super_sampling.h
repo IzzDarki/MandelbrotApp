@@ -20,26 +20,21 @@ public:
     };
 
 public:
-    SuperSamplingModel(const std::string& _name, Shader&& _shader) : Model(_name, std::move(_shader)) { }
-    SuperSamplingModel(const SuperSamplingModel& other) :
-        Model(other),
-        ssMode(other.ssMode),
-        ssMeanDiffTolerance(other.ssMeanDiffTolerance),
-        ssAbsoluteStandardErrorTolerance(other.ssAbsoluteStandardErrorTolerance),
-        ssRelativeStandardErrorTolerance(other.ssRelativeStandardErrorTolerance)
-    { }
+    SuperSamplingModel(const std::string& _name, Shader&& _shader);
+    SuperSamplingModel(const SuperSamplingModel& other);
 
-    virtual void initDefines() override;
     virtual void applyUniformVariables() override;
     virtual void imGuiFrame() override;
     virtual void imGuiScreenshotFrame() override;
     virtual std::unique_ptr<Model> clone() const override;
     virtual void makeScreenshotModel() override;
     virtual void makeScreenshotModel(const Model& otherScreenshotModel) override;
-
+    
+    /** Set super sampling mode in the shader, but don't recompile it */
+    void setSSMode(Mode newSSMode);
+    Mode getSSMode() const;
 
 public:
-    Mode ssMode = _2;
     float ssMeanDiffTolerance = 0.003f;
     float ssAbsoluteStandardErrorTolerance = 0.004f;
     float ssRelativeStandardErrorTolerance = 0.01f;

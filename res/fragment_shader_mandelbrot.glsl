@@ -2,7 +2,10 @@
 
 uniform uvec2 windowSize;
 uniform double zoomScale;
-uniform dvec2 numberStart;
+uniform dvec2 center;
+uniform uvec2 tileOffset; // used for tiled screenshot rendering
+double windowSizeMeasure = double(min(windowSize.x, windowSize.y));
+
 uniform uint maxIterations = 400;
 uniform uint colorAccuracy = 10; // used by some flowColor methods: 1 means every index results in a colorStep of (1.0 / 1) but there are only (6 * 1) colors. 255 means, that every index results in a much smaller colorStep of (1.0 / 255) but there are (255 * 6) colors. 
 
@@ -20,12 +23,14 @@ uint calcFractal(
 	double realTemp = 0;
 
 	for (int n = 1; n < maxIterations + 1; n++) {
-		if (CODE_DIVERGENCE_CRITERION) { // in case of mandelbrot: (real * real) + (imag * imag) > 4
+		if ((real * real) + (imag * imag) > 4) { // CODE_DIVERGENCE_CRITERION
 			return n;
 		}
 		realTemp = real;
 
-		CODE_CALCULATE_NEXT_SEQUENCE_TERM // in case of mandelbrot: real = (real * real) - (imag * imag) + startReal; imag = 2 * realTemp * imag + startImag;
+		 // CODE_CALCULATE_NEXT_SEQUENCE_TERM
+		real = (real * real) - (imag * imag) + startReal;
+		imag = 2 * realTemp * imag + startImag;
 	}
 #if FLOW_COLOR_TYPE == 3
 	escapeReal = real;
@@ -199,11 +204,11 @@ vec4 flowColor(uint index) {
 
 #elif FLOW_COLOR_TYPE == 3
 
-vec3 HSVToRGB(float h, float s, float v) {
-    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-    vec3 p = abs(fract(vec3(h, h, h) + K.xyz) * 6.0 - K.www);
-    return v * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), s);
-}
+// vec3 HSVToRGB(float h, float s, float v) {
+//     vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+//     vec3 p = abs(fract(vec3(h, h, h) + K.xyz) * 6.0 - K.www);
+//     return v * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), s);
+// }
 
 vec4 rgbStep(float index) {
 	if (index == 0)
@@ -281,8 +286,9 @@ vec4 rgbStep(float index) {
 }
 
 vec4 flowColor(uint index, double escapeReal, double escapeImag) {
-	if (index == 0)
+	if (index == 0) {
 		return vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	}
 
 	float smoothStep = float(index) + 1.0f - 0.42 * log(log(sqrt(float(escapeReal * escapeReal + escapeImag * escapeImag)))) / 0.301029996f;
 
@@ -309,8 +315,12 @@ vec4 flowColor(uint index, double escapeReal, double escapeImag) {
 #endif
 
 void main() {
-	double real = zoomScale * (double(gl_FragCoord.x) + 0.5) / windowSize.x + numberStart.x;
-	double imag = (zoomScale * (double(gl_FragCoord.y) + 0.5) + numberStart.y * windowSize.y) / windowSize.x;
+	// double real = zoomScale * (double(gl_FragCoord.x) + 0.5) / windowSize.x + numberStart.x;
+	// double imag = (zoomScale * (double(gl_FragCoord.y) + 0.5) + numberStart.y * windowSize.y) / windowSize.x;
+
+	dvec2 pixelCoord = dvec2(gl_FragCoord.xy) + dvec2(tileOffset); // gl_FragCoord (vec4) gives the fragments center position in window coordinates, e.g. the lower left is vec4(0.5, 0.5, _, _)
+	double real = (zoomScale / windowSizeMeasure) * (pixelCoord.x - double(windowSize.x) / 2.0) + center.x;
+	double imag = (zoomScale / windowSizeMeasure) * (pixelCoord.y - double(windowSize.y) / 2.0) + center.y;
 	
 #if FLOW_COLOR_TYPE == 3
 

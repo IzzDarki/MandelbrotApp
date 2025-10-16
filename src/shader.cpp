@@ -3,6 +3,7 @@
 #include <regex>
 #include <string>
 #include <sstream>
+#include <iostream>
 
 using namespace vec;
 
@@ -25,15 +26,9 @@ Shader::Shader(Shader&& other) noexcept
     }
 
 
-Shader::Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath, bool compileAndLink) {
+Shader::Shader(const std::string& vertexShaderSourcePath, const std::string& fragmentShaderSourcePath) {
     vertexShaderSource = Shader::loadShaderSourceFromPath(vertexShaderSourcePath);
     fragmentShaderSource = Shader::loadShaderSourceFromPath(fragmentShaderSourcePath);
-
-    if (compileAndLink) {
-        compileVertexShader();
-        compileFragmentShader();
-        link();
-    }
 }
 
 Shader::~Shader() {
@@ -41,6 +36,8 @@ Shader::~Shader() {
 }
 
 Shader& Shader::operator=(const Shader& other) {
+    this->destroy();
+
     this->vertexShaderSource = other.vertexShaderSource;
     this->fragmentShaderSource = other.fragmentShaderSource;
     this->defines = other.defines;
@@ -49,6 +46,8 @@ Shader& Shader::operator=(const Shader& other) {
 }
 
 Shader& Shader::operator=(Shader&& other) noexcept {
+    this->destroy();
+
     this->vertexShader = other.vertexShader;
     this->fragmentShader = other.fragmentShader;
     this->shaderProgram = other.shaderProgram;
@@ -100,14 +99,26 @@ void Shader::deleteProgram() {
 
 
 void Shader::compileVertexShader() {
+    if (vertexShader != 0) {
+        std::cerr << "Compiling vertex shader without deleting old one" << std::endl;
+    }
+
     vertexShader = loadShaderFromSource(GL_VERTEX_SHADER, this->prependDefines(this->vertexShaderSource));
 }
 
 void Shader::compileFragmentShader() {
+    if (fragmentShader != 0) {
+        std::cerr << "Compiling fragment shader without deleting old one" << std::endl;
+    }
+
     fragmentShader = loadShaderFromSource(GL_FRAGMENT_SHADER, this->prependDefines(this->fragmentShaderSource));
 }
 
 void Shader::link() {
+    if (shaderProgram != 0) {
+        std::cerr << "Linking shaders to program without deleting old one" << std::endl;
+    }
+
     shaderProgram = linkShaderProgram(vertexShader, fragmentShader);
 }
 
@@ -608,11 +619,11 @@ auto Shader::getVec4DoubleArray(const std::string& name) -> const std::vector<ve
 // * Other Stuff
 
 void Shader::recompile() {
-    deleteFragmentShader();
-    deleteProgram();
-    compileFragmentShader();
-    link();
-    use();
+    this->deleteFragmentShader();
+    this->deleteProgram();
+    this->compileFragmentShader();
+    this->link();
+    this->use();
     for (const auto& [name, val] : uniforms) {
         if (std::holds_alternative<int>(val))
             setIntHelper(shaderProgram, name, std::get<int>(val));
