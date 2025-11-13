@@ -194,7 +194,7 @@ bool takeScreenshot(
             // - windowSize is the full capture resolution (shader uses gl_FragCoord + tileOffset divided by windowSize)
             // - tileOffset is the pixel offset of this tile in the full image
             model.shader.use();
-            // model.shader.setVec2UInt("windowSize", { static_cast<unsigned int>(captureWidth), static_cast<unsigned int>(captureHeight) });
+            model.shader.setVec2UInt("windowSize", { static_cast<unsigned int>(captureWidth), static_cast<unsigned int>(captureHeight) });
             // model.shader.setVec2Double("center", { static_cast<double>(centerX), static_cast<double>(centerY) });
             // model.shader.setDouble("zoomScale", static_cast<double>(zoomScale));
             const size_t xOffset = tx * maxTileSize;
