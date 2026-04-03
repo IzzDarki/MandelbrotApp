@@ -176,9 +176,11 @@ public:
      * When later compiling the the shaders, every occurrence of `name` in the all the shader sources will be replaced by `value`
      * 
      * @param name The string that gets replaced
-     * @param value The string to replace with
+     * @param value The string to replace with, may be an empty string
      */
     inline void define(const std::string& name, const std::string& value) { defines[name] = value; }
+
+    inline void undefine(const std::string& name) { defines.erase(name); }
 
     inline const std::string& getDefine(const std::string& name) const {
         return defines.at(name);

@@ -4,9 +4,9 @@
 
 #include <string>
 
-#include "model.h"
+#include "model_colormap.h"
 
-class MandelbrotModel : virtual public Model {
+class MandelbrotModel : virtual public ColormapModel {
 public:
     enum ColorMap {
         Rainbow = 0,
@@ -36,7 +36,8 @@ public:
     // constexpr static const char* CODE_CALCULATE_NEXT_SEQUENCE_TERM = "CODE_CALCULATE_NEXT_SEQUENCE_TERM";
 
     int maxIterations = 400;
-    int colorAccuracy = 10; // TODO Just use color maps
+    float colorScale = 50.0f;
+    bool useDoublePrecision = true;
     int sliceValue = 0;
     float sliceFactor = 0.5f;
     // char codeDivergenceCriterion[1000] = "real*real + imag*imag > 4";

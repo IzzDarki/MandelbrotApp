@@ -5,14 +5,26 @@
 #include <ImGui/imgui.h>
 
 MandelbrotModel::MandelbrotModel()
-    : Model("Mandelbrot", Shader("../res/vertex_shader.glsl", "../res/fragment_shader_mandelbrot.glsl"))
+    : Model("MandelbrotModel", Shader("../res/vertex_shader.glsl", "../res/fragment_shader_mandelbrot.glsl")),
+      ColormapModel("MandelbrotModel", Shader("../res/vertex_shader.glsl", "../res/fragment_shader_mandelbrot.glsl"))
 {
+    this->selectColormap("Cyclic", "cet_colorwheel"); // Cyclic colormap as default
+
+    if (this->useDoublePrecision) {
+        this->shader.define("USE_DOUBLE", "");
+    }
+
     this->setColorMap(MandelbrotModel::RainbowSmooth);
 }
 
 MandelbrotModel::MandelbrotModel(const MandelbrotModel& other)
     : Model(other),
-      colorAccuracy(other.colorAccuracy)
+      ColormapModel(other),
+      maxIterations(other.maxIterations),
+      colorScale(other.colorScale),
+      useDoublePrecision(other.useDoublePrecision),
+      sliceValue(other.sliceValue),
+      sliceFactor(other.sliceFactor)
 {
     // strncpy(this->codeDivergenceCriterion, other.codeDivergenceCriterion, 1000); // copy at most 1000 characters
     // this->codeDivergenceCriterion[1000 - 1] = '\0'; // ensure null termination
@@ -22,14 +34,14 @@ MandelbrotModel::MandelbrotModel(const MandelbrotModel& other)
 }
 
 void MandelbrotModel::applyUniformVariables() {
-    this->Model::applyUniformVariables();
+    this->ColormapModel::applyUniformVariables();
 
     this->shader.setUInt("maxIterations", static_cast<uint>(this->maxIterations));
-    this->shader.setUInt("colorAccuracy", static_cast<uint>(this->colorAccuracy));
+    this->shader.setFloat("colorScale", this->colorScale);
 }
 
 void MandelbrotModel::imGuiFrame() {
-    this->Model::imGuiFrame();
+    this->ColormapModel::imGuiFrame();
 
     ImGui::Text("Color: ");
     ImGui::SameLine();
@@ -54,8 +66,8 @@ void MandelbrotModel::imGuiFrame() {
     	this->shader.recompile();
     }
 
-    if (ImGui::SliderInt("Color accuracy", &this->colorAccuracy, 1, 1'000)) {
-    	this->shader.setUInt("colorAccuracy", static_cast<uint>(this->colorAccuracy));
+    if (ImGui::SliderFloat("Color Scale", &this->colorScale, 0.5f, 300.0f)) {
+    	this->shader.setFloat("colorScale", this->colorScale);
     }
 
     if (ImGui::SliderInt("Slice Value for Black/White", &this->sliceValue, 0, this->maxIterations)) {
@@ -64,6 +76,16 @@ void MandelbrotModel::imGuiFrame() {
 
     if (ImGui::SliderFloat("Slice Factor for Black/White", &this->sliceFactor, 0.0f, 1.0f)) {
         this->shader.setFloat("sliceFactor", this->sliceFactor);
+    }
+
+    if (ImGui::Checkbox("Use Double Precision", &this->useDoublePrecision)) {
+        if (this->useDoublePrecision) {
+            this->shader.define("USE_DOUBLE", ""); 
+        } else {
+            this->shader.undefine("USE_DOUBLE");
+        }
+        this->shader.recompile();
+
     }
 
     this->imGuiScreenshotFrameHelper();
@@ -85,8 +107,8 @@ void MandelbrotModel::imGuiFrame() {
 }
 
 void MandelbrotModel::imGuiScreenshotFrame() {
-    this->Model::imGuiScreenshotFrame();
-
+    this->ColormapModel::imGuiScreenshotFrame();
+    this->imGuiScreenshotFrameHelper();
 }
 
 std::unique_ptr<Model> MandelbrotModel::clone() const {
@@ -95,13 +117,13 @@ std::unique_ptr<Model> MandelbrotModel::clone() const {
 
 
 void MandelbrotModel::makeScreenshotModel() {
-    this->Model::makeScreenshotModel();
+    this->ColormapModel::makeScreenshotModel();
 
     this->setDefaultScreenshotParameters();
 }
 
 void MandelbrotModel::makeScreenshotModel(const Model& otherScreenshotModel) {
-    this->Model::makeScreenshotModel(otherScreenshotModel);
+    this->ColormapModel::makeScreenshotModel(otherScreenshotModel);
 
     const MandelbrotModel* otherScreenshotMandelbrotModel = dynamic_cast<const MandelbrotModel*>(&otherScreenshotModel);
     if (otherScreenshotMandelbrotModel == nullptr) {
@@ -114,14 +136,14 @@ void MandelbrotModel::makeScreenshotModel(const Model& otherScreenshotModel) {
 
 
 void MandelbrotModel::updateWithLiveModel(const Model& liveModel) {
-    this->Model::updateWithLiveModel(liveModel);
+    this->ColormapModel::updateWithLiveModel(liveModel);
 
     const MandelbrotModel* liveMandelbrotModel = dynamic_cast<const MandelbrotModel*>(&liveModel);
     if (liveMandelbrotModel == nullptr) { // liveModel is not a MandelbrotModel
         return;
     }
 
-    this->colorAccuracy = liveMandelbrotModel->colorAccuracy;
+    this->colorScale = liveMandelbrotModel->colorScale;
     this->setColorMap(liveMandelbrotModel->getColorMap());
 }
 

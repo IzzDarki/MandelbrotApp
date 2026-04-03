@@ -15,8 +15,6 @@ ColormapModel::ColormapModel(const std::string& _name, Shader&& _shader)
 
     loadColormaps("../res/colormaps.bin");
 
-    std::cout << "Colormaps loaded" << std::endl;
-
     // Initialize the shared pointer. The lambda function ensures glDeleteTextures 
     // is called ONLY when the last ColormapModel using this texture is destroyed.
     this->colormapTexture = std::shared_ptr<GLuint>(new GLuint(0), [](GLuint* ptr) {
