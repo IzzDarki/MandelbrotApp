@@ -186,7 +186,7 @@ public:
 
     void recompile();
 
-protected:
+public: // but be careful
 
     unsigned int vertexShader = 0; // for OpenGL 0 is "no shader"
     unsigned int fragmentShader = 0; // for OpenGL 0 is "no shader"

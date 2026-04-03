@@ -38,6 +38,9 @@ public:
         (usually the same ones that `makeScreenshotModel` touches) */
     virtual void updateWithLiveModel(const Model& liveModel);
 
+    /** Gets called right before glDrawElements, e.g. for binding a texture */
+    virtual void drawCall();
+
     virtual ~Model();
 
 public:

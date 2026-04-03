@@ -44,8 +44,10 @@ static std::array<float, 10> lastFrameDeltas;
 static std::size_t lastFrameArrayIndex = 0;
 static bool autoMaxIterations = false;
 
-static std::unique_ptr<Model> model = std::make_unique<DoublePendulumModel>();
+static std::unique_ptr<Model> model; // = std::make_unique<DoublePendulumModel>(); // or MandelbrotModel
 static std::unique_ptr<Model> screenshotModel; // Initialized in main (always kept in a state, where at least the vertex shader is compiled)
+static const char* availableModels[] = { "DoublePendulumModel", "MandelbrotModel" };
+static int currentSelectedModel = 1; // defined which model is used
 
 // N-Body Problem Parameters
 // constexpr const uint N = 3u;
@@ -140,6 +142,38 @@ static void jumpToView(const SavedView& savedView) {
 	model->shader.setVec2Double("center", { centerX, centerY });
 }
 
+static void applyModelSelection() {
+	bool modelChanged = false;
+	if (currentSelectedModel == 0) {
+		if (dynamic_cast<const DoublePendulumModel*>(model.get()) == nullptr) {
+			model = std::make_unique<DoublePendulumModel>();
+			modelChanged = true;
+		}
+	} else if (currentSelectedModel == 1) {
+		if (dynamic_cast<const MandelbrotModel*>(model.get()) == nullptr) {
+			model = std::make_unique<MandelbrotModel>();
+			modelChanged = true;
+		}
+	}
+
+	if (modelChanged) {
+		std::unique_ptr<Model> oldScreenshotModel = std::move(screenshotModel);
+		screenshotModel = model->clone();
+		if (oldScreenshotModel) {
+			screenshotModel->makeScreenshotModel(*oldScreenshotModel); // e. g. set lower rk45 tolerance to achieve better quality screenshots than the live view
+		} else {
+			screenshotModel->makeScreenshotModel();
+		}
+		screenshotModel->shader.compileVertexShader(); // screenshotModel must always have the vertex shader compiled
+
+		model->shader.compileAndLink();
+		model->shader.use(); // Needs to be called before setting uniform variables
+
+		applyGlobalUniformVariables(*model);
+		model->applyUniformVariables();
+	}
+}
+
 static void ImGuiFrame(bool& showImGuiWindow) {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -158,9 +192,11 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 				//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 				ImGui::Text("%.1f fps", static_cast<double>(calcFPSAverage()));
 				
-				model->imGuiFrame();
+				if (ImGui::Combo("Model", &currentSelectedModel, availableModels, IM_ARRAYSIZE(availableModels))) {
+					applyModelSelection();
+				}
 
-				
+				model->imGuiFrame();
 
 				// ImGui::Text("N-Body Problem Controls: ");
 				// if (ImGui::SliderFloat("End-Time", &simulationEndTime, 0.0f, 0.1f)) {
@@ -243,20 +279,8 @@ static void ImGuiFrame(bool& showImGuiWindow) {
 
 				ImGui::Separator();
 
-				// Replace the screenshot model if the subclass type changed in the live model
 				if (typeid(*model) != typeid(*screenshotModel)) {
-					std::unique_ptr<Model> oldScreenshotModel = std::move(screenshotModel);
-					screenshotModel = model->clone();
-					screenshotModel->makeScreenshotModel(*oldScreenshotModel);
-					screenshotModel->shader.compileVertexShader(); // Needed, because recompile does not recompile the vertex shader
-					
-					// Assertion as sanity-check (maybe remove this at some point)
-					if (typeid(*model) != typeid(*screenshotModel)) {
-						std::cerr << "This should never not happen " << __FILE__ << " line " << __LINE__
-							<< "typeid(*model) is " << typeid(*model).name()
-							<< ", typeid(*screenshotModel) is " << typeid(*screenshotModel).name() << std::endl;
-					}
-					std::cout << "Switched screenshot model" << std::endl;
+					std::cout << "Screenshot model does not match the model type" << std::endl;
 				}
 
 				// Show ImGui UI for screenshot
@@ -564,10 +588,6 @@ static void applyGlobalUniformVariables(Model& usedModel) {
 
 int main()
 {
-	// Initialize screenshotModel
-	screenshotModel = model->clone();
-	screenshotModel->makeScreenshotModel(); // e. g. set lower rk45 tolerance to achieve better quality screenshots than the live view
-
 	SavedView::initFromFile();
 
 	if (!initGLFW())
@@ -576,9 +596,8 @@ int main()
 		return -1;
 	initImGui();
 
-	screenshotModel->shader.compileVertexShader(); // screenshotModel must always have the vertex shader compiled
-	model->shader.compileAndLink();
-	model->shader.use(); // Needs to be called before setting uniform variables
+	// Initialize model and screenshotModel
+	applyModelSelection(); // initializes the model
 
 	float vertices[] = {
 		-1.0f, -1.0f,	// bottom left
@@ -644,6 +663,7 @@ int main()
 
 		// draw
 		glBindVertexArray(vertexArray);
+		model->drawCall();
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 
 		if (ImGuiEnabled)

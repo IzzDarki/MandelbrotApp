@@ -16,6 +16,10 @@ DoublePendulumModel::DoublePendulumModel() :
     RK45Model(
         "Double Pendulum",
         Shader("../res/vertex_shader.glsl", "../res/fragment_shader_double_pendulum.glsl") // Don't compile and link shader (not responsibility of the model)
+    ),
+    ColormapModel(
+        "Double Pendulum",
+        Shader("../res/vertex_shader.glsl", "../res/fragment_shader_double_pendulum.glsl") // Don't compile and link shader (not responsibility of the model)
     )
     { }
 
@@ -23,6 +27,7 @@ DoublePendulumModel::DoublePendulumModel(const DoublePendulumModel& other)
     : Model(other),
       SuperSamplingModel(other),
       RK45Model(other),
+      ColormapModel(other),
       simulationEndTime(other.simulationEndTime),
       v1Start(other.v1Start),
       v2Start(other.v2Start),
@@ -36,6 +41,7 @@ DoublePendulumModel::DoublePendulumModel(const DoublePendulumModel& other)
 void DoublePendulumModel::applyUniformVariables() {
     this->SuperSamplingModel::applyUniformVariables();
     this->RK45Model::applyUniformVariables();
+    this->ColormapModel::applyUniformVariables();
 
 	// Double Pendulum
 	this->shader.setFloat("t_end", this->simulationEndTime);
@@ -51,6 +57,7 @@ void DoublePendulumModel::applyUniformVariables() {
 void DoublePendulumModel::imGuiFrame() {
     this->SuperSamplingModel::imGuiFrame();
     this->RK45Model::imGuiFrame();
+    this->ColormapModel::imGuiFrame();
 
     if (ImGui::CollapsingHeader("Double Pendulum", ImGuiTreeNodeFlags_DefaultOpen)) {
         if (ImGuiFlexibleSliderFloat("End-Time", &this->simulationEndTime, &this->simulationEndTimeMin, &this->simulationEndTimeMax, 1.0f, 1.3f)) {
@@ -84,6 +91,7 @@ void DoublePendulumModel::imGuiFrame() {
 void DoublePendulumModel::imGuiScreenshotFrame() {
     this->SuperSamplingModel::imGuiScreenshotFrame();
     this->RK45Model::imGuiScreenshotFrame();
+    this->ColormapModel::imGuiScreenshotFrame();
 }
 
 std::unique_ptr<Model> DoublePendulumModel::clone() const {
@@ -93,11 +101,13 @@ std::unique_ptr<Model> DoublePendulumModel::clone() const {
 void DoublePendulumModel::makeScreenshotModel() {
     this->SuperSamplingModel::makeScreenshotModel();
     this->RK45Model::makeScreenshotModel();
+    this->ColormapModel::makeScreenshotModel();
 }
 
 void DoublePendulumModel::makeScreenshotModel(const Model& otherScreenshotModel) {
     this->SuperSamplingModel::makeScreenshotModel(otherScreenshotModel);
     this->RK45Model::makeScreenshotModel(otherScreenshotModel);
+    this->ColormapModel::makeScreenshotModel(otherScreenshotModel);
 
     // No need to copy assign any attributes from the otherScreenshotModel,
     // since all attributes are only relevant to the live model
@@ -106,6 +116,7 @@ void DoublePendulumModel::makeScreenshotModel(const Model& otherScreenshotModel)
 void DoublePendulumModel::updateWithLiveModel(const Model& liveModel) {
     this->SuperSamplingModel::updateWithLiveModel(liveModel);
     this->RK45Model::updateWithLiveModel(liveModel);
+    this->ColormapModel::updateWithLiveModel(liveModel);
 
     const DoublePendulumModel* liveDoublePendulumModel = dynamic_cast<const DoublePendulumModel*>(&liveModel);
     if (liveDoublePendulumModel == nullptr) { // liveModel is not a DoublePendulumModel

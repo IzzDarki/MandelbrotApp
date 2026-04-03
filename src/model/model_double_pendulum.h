@@ -4,8 +4,9 @@
 
 #include "model_rk45.h"
 #include "model_super_sampling.h"
+#include "model_colormap.h"
 
-class DoublePendulumModel : public virtual SuperSamplingModel, public virtual RK45Model {
+class DoublePendulumModel : public virtual SuperSamplingModel, public virtual RK45Model, public virtual ColormapModel {
 protected:
     // Double Pendulum Parameters
     float simulationEndTime = 3.0f;

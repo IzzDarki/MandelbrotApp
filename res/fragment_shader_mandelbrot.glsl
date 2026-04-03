@@ -8,6 +8,9 @@ double windowSizeMeasure = double(min(windowSize.x, windowSize.y));
 
 uniform uint maxIterations = 400;
 uniform uint colorAccuracy = 10; // used by some flowColor methods: 1 means every index results in a colorStep of (1.0 / 1) but there are only (6 * 1) colors. 255 means, that every index results in a much smaller colorStep of (1.0 / 255) but there are (255 * 6) colors. 
+uniform uint sliceValue = 0;
+uniform float sliceFactor = 0.5;
+
 
 out vec4 fragColor;
 
@@ -119,10 +122,10 @@ vec4 flowColor(uint index) {
 #elif FLOW_COLOR_TYPE == 1
 
 vec4 flowColor(uint index) {
-	if (index != 0)
-		return vec4(1.0, 1.0, 1.0, 1.0);
-	else
+	if (sliceFactor*sliceValue <= index && index <= sliceValue)
 		return vec4(0.0, 0.0, 0.0, 1.0);
+	else
+		return vec4(1.0, 1.0, 1.0, 1.0);
 }
 
 #elif FLOW_COLOR_TYPE == 2

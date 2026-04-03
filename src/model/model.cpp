@@ -9,4 +9,5 @@ std::unique_ptr<Model> Model::clone() const {
 void Model::makeScreenshotModel() { }
 void Model::makeScreenshotModel(const Model& otherScreenshotModel) { (void)otherScreenshotModel; }
 void Model::updateWithLiveModel(const Model& liveModel) { (void)liveModel; }
+void Model::drawCall() { }
 Model::~Model() { }

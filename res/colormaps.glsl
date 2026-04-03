@@ -82,3 +82,20 @@ vec4 turbo(in float x) {
   );
   return vec4(color, 1.0);
 }
+
+
+#if defined(SELECTED_COLORMAP) && SELECTED_COLORMAP != 0
+vec4 selected_colormap(in float x) {
+    #if SELECTED_COLORMAP == 1
+        return viridis(x);
+    #elif SELECTED_COLORMAP == 2
+        return inferno(x);
+    #elif SELECTED_COLORMAP == 3
+        return plasma(x);
+    #elif SELECTED_COLORMAP == 4
+        return magma(x);
+    #else // SELECTED_COLORMAP == 5
+        return turbo(x);
+    #endif
+}
+#endif

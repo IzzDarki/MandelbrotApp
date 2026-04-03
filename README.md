@@ -25,7 +25,7 @@ Start in the project root directory
     ```shell
     cmake --build build -- -j$(nproc)
     ```
-4. Find the compiled binary in `bin-Release/` or `bin-Debug/`
+4. Run the compiled binary from within the folder `bin-Release/` or `bin-Debug/`
 
 ###### Build Options
 These options are defined/checked by the cmake/ helper modules in the repo.

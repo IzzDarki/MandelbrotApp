@@ -37,6 +37,8 @@ public:
 
     int maxIterations = 400;
     int colorAccuracy = 10; // TODO Just use color maps
+    int sliceValue = 0;
+    float sliceFactor = 0.5f;
     // char codeDivergenceCriterion[1000] = "real*real + imag*imag > 4";
     // char codeCalculateNextSequenceTerm[2000] = "real = real*real - imag*imag + startReal;\nimag = 2 * realTemp * imag + startImag;";
 

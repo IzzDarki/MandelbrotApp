@@ -75,6 +75,8 @@
         "libglfw",
         "opengl",
         "pthread",
+        "Viridis",
+        "VIRIDIS",
         "vsync"
     ]
 }

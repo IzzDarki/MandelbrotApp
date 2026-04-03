@@ -14,9 +14,11 @@ add_executable(MandelbrotApp
     src/app_utility.cpp
     src/saved_view.cpp
     src/screenshot.cpp
+    src/colormaps.cpp
     src/model/model.cpp
     src/model/model_rk45.cpp
     src/model/model_super_sampling.cpp
+    src/model/model_colormap.cpp
     src/model/model_double_pendulum.cpp
     src/model/model_mandelbrot.cpp
 )
@@ -28,9 +30,11 @@ target_sources(MandelbrotApp PRIVATE
     src/ini_file.h
     src/saved_view.h
     src/screenshot.h
+    src/colormaps.h
     src/model/model.h
     src/model/model_rk45.h
     src/model/model_super_sampling.h
+    src/model/model_colormap.h
     src/model/model_double_pendulum.h
     src/model/model_mandelbrot.h
 )

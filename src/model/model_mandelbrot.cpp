@@ -58,6 +58,14 @@ void MandelbrotModel::imGuiFrame() {
     	this->shader.setUInt("colorAccuracy", static_cast<uint>(this->colorAccuracy));
     }
 
+    if (ImGui::SliderInt("Slice Value for Black/White", &this->sliceValue, 0, this->maxIterations)) {
+        this->shader.setUInt("sliceValue", static_cast<uint>(this->sliceValue));
+    }
+
+    if (ImGui::SliderFloat("Slice Factor for Black/White", &this->sliceFactor, 0.0f, 1.0f)) {
+        this->shader.setFloat("sliceFactor", this->sliceFactor);
+    }
+
     this->imGuiScreenshotFrameHelper();
 
     // Sequence

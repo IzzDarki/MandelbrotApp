@@ -141,5 +141,5 @@ void main() {
 	// float value = remap(float(length(rvec2(x2, y2))), 0.0, 4.0, 0.0, 1.0);
 	// float value = remap(float(step_counter), 0.0, float(MAX_STEPS / 3.0), 0.0, 1.0);
 
-	fragColor = viridis(value);
+	fragColor = selected_colormap(value);
 }
