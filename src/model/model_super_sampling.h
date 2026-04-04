@@ -20,7 +20,7 @@ public:
     };
 
 public:
-    SuperSamplingModel(const std::string& _name, Shader&& _shader);
+    SuperSamplingModel(const std::string& _name, Shader&& _shader, bool disableAdaptive = false, bool disableStatic = false);
     SuperSamplingModel(const SuperSamplingModel& other);
 
     virtual void applyUniformVariables() override;
@@ -39,7 +39,9 @@ public:
     float ssAbsoluteStandardErrorTolerance = 0.004f;
     float ssRelativeStandardErrorTolerance = 0.01f;
 
-private:
+protected:
+    bool disableAdaptive;
+    bool disableStatic;
     void imGuiFrameHelper();
     void setDefaultScreenshotParameters();
 

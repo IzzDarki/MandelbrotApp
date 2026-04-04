@@ -1,20 +1,15 @@
 #version 430 core
 
-uniform uvec2 windowSize;
-uniform double zoomScale;
-uniform dvec2 center;
-uniform uvec2 tileOffset; // used for tiled screenshot rendering
-double windowSizeMeasure = double(min(windowSize.x, windowSize.y));
-
-uniform float v1_start;
-uniform float v2_start;
-
 #include "real.glsl"
+#include "zooming_and_tiling.glsl"
 #include "colormaps.glsl"
 #include "double_pendulum_rhs.glsl"
 
 #define RK45_DISABLE_ARR_METHODS // We only need vector methods (since 4 dimensions fit in one vector)
 #include "rk45.glsl"
+
+uniform float v1_start;
+uniform float v2_start;
 
 uniform sampler2D colormap;
 
@@ -28,12 +23,11 @@ uniform sampler2D colormap;
 
 // Adaptive super sampling
 real evaluate(dvec2 pixelCoord) {
-	real q1_start = real((zoomScale / windowSizeMeasure) * (pixelCoord.x - double(windowSize.x) / 2.0) + center.x);
-	real q2_start = real((zoomScale / windowSizeMeasure) * (pixelCoord.y - double(windowSize.y) / 2.0) + center.y);
-
+	rvec2 planeCoord = rvec2(pixelCoordToPlaneCoord(pixelCoord));
+	
 	rvec4 y_start = rvec4(
-		q1_start,
-		q2_start,
+		planeCoord.x, // q1_start,
+		planeCoord.y, // q2_start,
 		v1_start, // 0.5,
 		v2_start  // -0.5
 	);
@@ -70,21 +64,19 @@ out vec4 fragColor;
 void main() {
 	// Adaptive super sampling
 	#if SUPER_SAMPLING == 0
-	real result = evaluateWithAdaptiveSuperSampling(gl_FragCoord.xy + vec2(tileOffset));
+	real result = evaluateWithAdaptiveSuperSampling(dvec2(gl_FragCoord.xy));
 
 	#else
 
 	// Static super sampling
-	dvec2 pixelCoord = dvec2(gl_FragCoord.xy) + dvec2(tileOffset); // gl_FragCoord (vec4) gives the fragments center position in window coordinates, e.g. the lower left is vec4(0.5, 0.5, _, _)
+	dvec2 pixelCoord = dvec2(gl_FragCoord.xy); // gl_FragCoord (vec4) gives the fragments center position in window coordinates, e.g. the lower left is vec4(0.5, 0.5, _, _) (0.5 because center)
 	real result = 0.0;
 	for (uint i = 0; i < NUM_SAMPLES; ++i) {
-		real q1_start = real((zoomScale / windowSizeMeasure) * (pixelCoord.x + sample_offsets[i].x - double(windowSize.x) / 2.0) + center.x);
-		real q2_start = real((zoomScale / windowSizeMeasure) * (pixelCoord.y + sample_offsets[i].y - double(windowSize.y) / 2.0) + center.y);
-
-
+		rvec2 planeCoord = rvec2(pixelCoordToPlaneCoord(pixelCoord + sample_offsets[i]));
+		
 		rvec4 y_start = rvec4(
-			q1_start,
-			q2_start,
+			planeCoord.x, // q1_start
+			planeCoord.y, // q2_start
 			v1_start,
 			v2_start
 		);

@@ -1,10 +1,7 @@
 #version 430 core
 
-uniform uvec2 windowSize;
-uniform double zoomScale;
-uniform dvec2 center;
-uniform uvec2 tileOffset; // used for tiled screenshot rendering
-double windowSizeMeasure = double(min(windowSize.x, windowSize.y));
+#include "complex.glsl"
+#include "zooming_and_tiling.glsl"
 
 uniform uint maxIterations = 400;
 uniform float colorScale = 50.0; // E.g. 50.0 means that the value range [0, 50] contains the entire colormap. Cyclic colormaps repeat, others are clamped. 
@@ -14,8 +11,6 @@ uniform float sliceFactor = 0.5;
 uniform sampler2D colormap;
 
 out vec4 fragColor;
-
-#include "complex.glsl"
 
 uint calcFractal(complex start, out complex escape) {
 	complex current = start;
@@ -83,13 +78,17 @@ void main() {
 	// double real = zoomScale * (double(gl_FragCoord.x) + 0.5) / windowSize.x + numberStart.x;
 	// double imag = (zoomScale * (double(gl_FragCoord.y) + 0.5) + numberStart.y * windowSize.y) / windowSize.x;
 
-	dvec2 pixelCoord = dvec2(gl_FragCoord.xy) + dvec2(tileOffset); // gl_FragCoord (vec4) gives the fragments center position in window coordinates, e.g. the lower left is vec4(0.5, 0.5, _, _)
-	real startReal = real((zoomScale / windowSizeMeasure) * (pixelCoord.x - double(windowSize.x) / 2.0) + center.x);
-	real startImag = real((zoomScale / windowSizeMeasure) * (pixelCoord.y - double(windowSize.y) / 2.0) + center.y);
-	
+	dvec2 pixelCoord = dvec2(gl_FragCoord.xy); // gl_FragCoord (vec4) gives the fragments center position in window coordinates, e.g. the lower left is vec4(0.5, 0.5, _, _)
+	complex start = complex(pixelCoordToPlaneCoord(pixelCoord));
+
 	complex escape;
-	uint count = calcFractal(complex(startReal, startImag), escape);
+	uint count = calcFractal(start, escape);
+
+#ifdef USE_SMOOTHING
 	float smoothCount = float(count) + 1.0 - log2(log(float(max(length(escape), 2.0)))); // Specifically for Mandelbrot set
+#else
+	float smoothCount = float(count);
+#endif
 
 	if (count == 0) {
 		fragColor = vec4(0.0, 0.0, 0.0, 1.0); // Mandelbrot itself black

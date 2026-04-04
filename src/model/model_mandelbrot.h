@@ -38,6 +38,7 @@ public:
     int maxIterations = 400;
     float colorScale = 50.0f;
     bool useDoublePrecision = true;
+    bool useSmoothing = true;
     int sliceValue = 0;
     float sliceFactor = 0.5f;
     // char codeDivergenceCriterion[1000] = "real*real + imag*imag > 4";

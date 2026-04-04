@@ -13,6 +13,9 @@ MandelbrotModel::MandelbrotModel()
     if (this->useDoublePrecision) {
         this->shader.define("USE_DOUBLE", "");
     }
+    if (this->useSmoothing) {
+        this->shader.define("USE_SMOOTHING", "");
+    }
 
     this->setColorMap(MandelbrotModel::RainbowSmooth);
 }
@@ -23,6 +26,7 @@ MandelbrotModel::MandelbrotModel(const MandelbrotModel& other)
       maxIterations(other.maxIterations),
       colorScale(other.colorScale),
       useDoublePrecision(other.useDoublePrecision),
+      useSmoothing(other.useSmoothing),
       sliceValue(other.sliceValue),
       sliceFactor(other.sliceFactor)
 {
@@ -85,7 +89,15 @@ void MandelbrotModel::imGuiFrame() {
             this->shader.undefine("USE_DOUBLE");
         }
         this->shader.recompile();
+    }
 
+    if (ImGui::Checkbox("Use Smoothing", &this->useSmoothing)) {
+        if (this->useSmoothing) {
+            this->shader.define("USE_SMOOTHING", ""); 
+        } else {
+            this->shader.undefine("USE_SMOOTHING");
+        }
+        this->shader.recompile();
     }
 
     this->imGuiScreenshotFrameHelper();

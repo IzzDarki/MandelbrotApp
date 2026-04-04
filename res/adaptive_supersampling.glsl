@@ -1043,14 +1043,14 @@ uniform real ABS_SE_TOL; // = 0.004
 uniform real REL_SE_TOL; // = 0.01
 
 // Written by ChatGPT
-real evaluateWithAdaptiveSuperSampling(vec2 pixelCenter) {
+real evaluateWithAdaptiveSuperSampling(dvec2 pixelCenter) {
     real sum = 0.0;      // sum of scalar samples
     real previousMean = 0.0;
     real m2 = 0.0;       // Welford variance accumulator
 
     // loop through PMJ samples progressively
     for (int i = 0; i < MAX_SAMPLES; ++i) {
-        dvec2 samplePixel = dvec2(pixelCenter + offsets[i]);
+        dvec2 samplePixel = pixelCenter + dvec2(offsets[i]);
         real y = evaluate(samplePixel);
         sum += y;
 

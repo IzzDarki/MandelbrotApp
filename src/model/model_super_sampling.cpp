@@ -8,8 +8,10 @@
 #include <ImGui/imgui.h>
 
 
-SuperSamplingModel::SuperSamplingModel(const std::string& _name, Shader&& _shader)
-    : Model(_name, std::move(_shader))
+SuperSamplingModel::SuperSamplingModel(const std::string& _name, Shader&& _shader, bool disableAdaptive, bool disableStatic)
+    : Model(_name, std::move(_shader)),
+      disableAdaptive(disableAdaptive),
+      disableStatic(disableStatic)
 {
     this->shader.define("SUPER_SAMPLING", std::to_string(SuperSamplingModel::_2));
 }
@@ -54,6 +56,12 @@ void SuperSamplingModel::imGuiFrameHelper() {
 
         if (ImGui::BeginCombo("Mode", options[static_cast<unsigned long>(index)].first)) {
             for (const auto& option : options) {
+                if (this->disableAdaptive && option.second == SuperSamplingModel::ADAPTIVE) {
+                    continue;
+                }
+                if (this->disableStatic && option.second != SuperSamplingModel::ADAPTIVE) {
+                    continue;
+                }
                 bool isSelected = (currentSSMode == option.second);
                 if (ImGui::Selectable(option.first, isSelected)) {
                     this->setSSMode(option.second);
