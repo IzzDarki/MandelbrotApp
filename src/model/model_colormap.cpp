@@ -38,7 +38,9 @@ ColormapModel::ColormapModel(const ColormapModel& other)
 //     this->Model::applyUniformVariables();
 // }
 
-void ColormapModel::imGuiFrameHelper() {
+
+void ColormapModel::imGuiFrame() {
+    this->Model::imGuiFrame();
 
     if (ImGui::CollapsingHeader("Color", ImGuiTreeNodeFlags_DefaultOpen)) {
         
@@ -74,12 +76,10 @@ void ColormapModel::imGuiFrameHelper() {
             ImGui::EndCombo();
         }
 
-        // Display a visual preview of the currently selected colormap!
-        ImGui::Spacing();
-        ImGui::Text("Preview:");
-        
+        // Display a visual preview of the currently selected colormap!    
         // Pass the raw OpenGL texture ID to ImGui. 
         // We dereference the shared_ptr, then cast it to the pointer type ImGui expects.
+        ImGui::Spacing();
         ImGui::Image(
             reinterpret_cast<ImTextureID>(static_cast<intptr_t>(*(this->colormapTexture))),
             ImVec2(ImGui::GetContentRegionAvail().x, 20.0f) // Stretch to full window width, 20px high
@@ -88,16 +88,8 @@ void ColormapModel::imGuiFrameHelper() {
     }
 }
 
-void ColormapModel::imGuiFrame() {
-    this->Model::imGuiFrame();
-
-    this->imGuiFrameHelper();
-}
-
 void ColormapModel::imGuiScreenshotFrame() {
     this->Model::imGuiScreenshotFrame();
-
-    this->imGuiFrameHelper();
 }
 
 std::unique_ptr<Model> ColormapModel::clone() const {

@@ -202,6 +202,7 @@ bool takeScreenshot(
             model.shader.setVec2UInt("tileOffset", { static_cast<unsigned int>(xOffset), static_cast<unsigned int>(yOffset) });
 
             // draw
+            model.drawCall();
             glBindVertexArray(vertexArray);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
             glFinish();

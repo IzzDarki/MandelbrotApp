@@ -26,7 +26,6 @@ public:
     void selectColormap(const std::string& group, const std::string& name);
 
 protected:
-    void imGuiFrameHelper();
     void setDefaultScreenshotParameters();
     void initializeColormapTexture(const std::string& defaultGroup, const std::string& defaultName);
     static void applyWrapMode(const std::string& group);

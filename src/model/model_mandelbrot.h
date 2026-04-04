@@ -4,9 +4,10 @@
 
 #include <string>
 
+#include "model_super_sampling.h"
 #include "model_colormap.h"
 
-class MandelbrotModel : virtual public ColormapModel {
+class MandelbrotModel : virtual public SuperSamplingModel, virtual public ColormapModel {
 public:
     enum ColorMap {
         Rainbow = 0,

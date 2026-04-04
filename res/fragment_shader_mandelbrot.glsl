@@ -2,6 +2,7 @@
 
 #include "complex.glsl"
 #include "zooming_and_tiling.glsl"
+#include "static_supersampling.glsl"
 
 uniform uint maxIterations = 400;
 uniform float colorScale = 50.0; // E.g. 50.0 means that the value range [0, 50] contains the entire colormap. Cyclic colormaps repeat, others are clamped. 
@@ -75,25 +76,30 @@ uint calcFractal(complex start, out complex escape) {
 // #endif
 
 void main() {
-	// double real = zoomScale * (double(gl_FragCoord.x) + 0.5) / windowSize.x + numberStart.x;
-	// double imag = (zoomScale * (double(gl_FragCoord.y) + 0.5) + numberStart.y * windowSize.y) / windowSize.x;
-
 	dvec2 pixelCoord = dvec2(gl_FragCoord.xy); // gl_FragCoord (vec4) gives the fragments center position in window coordinates, e.g. the lower left is vec4(0.5, 0.5, _, _)
-	complex start = complex(pixelCoordToPlaneCoord(pixelCoord));
 
-	complex escape;
-	uint count = calcFractal(start, escape);
+	uint numInside = 0;
+	float avgSmoothCount = 0.0;
+	for (uint i = 0; i < NUM_SAMPLES; ++i) {
+		complex start = complex(pixelCoordToPlaneCoord(pixelCoord + sample_offsets[i]));
+		complex escape;
+		uint count = calcFractal(start, escape);
 
-#ifdef USE_SMOOTHING
-	float smoothCount = float(count) + 1.0 - log2(log(float(max(length(escape), 2.0)))); // Specifically for Mandelbrot set
-#else
-	float smoothCount = float(count);
-#endif
+		#ifdef USE_SMOOTHING
+			float smoothCount = float(count) + 1.0 - log2(log(float(max(length(escape), 2.0)))); // Specifically for Mandelbrot set
+		#else
+			float smoothCount = float(count);
+		#endif
 
-	if (count == 0) {
-		fragColor = vec4(0.0, 0.0, 0.0, 1.0); // Mandelbrot itself black
-	} else {
-		smoothCount = smoothCount / colorScale;
-		fragColor = texture(colormap, vec2(smoothCount, 0.5));
+		if (count > 0) { // not inside the mandelbrot
+			avgSmoothCount += smoothCount;
+		} else {
+			numInside += 1;
+		}
 	}
+	avgSmoothCount /= (NUM_SAMPLES - numInside); // Average of samples outside the mandelbrot
+	
+	float value = avgSmoothCount / colorScale;
+	float outsideRatio = (NUM_SAMPLES - numInside) / NUM_SAMPLES;
+	fragColor = vec4(outsideRatio * texture(colormap, vec2(value, 0.5)).xyz, 1.0); // interpolate between outside color and implicit black
 }

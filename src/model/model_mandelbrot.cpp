@@ -6,6 +6,7 @@
 
 MandelbrotModel::MandelbrotModel()
     : Model("MandelbrotModel", Shader("../res/vertex_shader.glsl", "../res/fragment_shader_mandelbrot.glsl")),
+    SuperSamplingModel("MandelbrotModel", Shader("../res/vertex_shader.glsl", "../res/fragment_shader_mandelbrot.glsl"), true), // disable adaptive supersampling mode
       ColormapModel("MandelbrotModel", Shader("../res/vertex_shader.glsl", "../res/fragment_shader_mandelbrot.glsl"))
 {
     this->selectColormap("Cyclic", "cet_colorwheel"); // Cyclic colormap as default
@@ -22,6 +23,7 @@ MandelbrotModel::MandelbrotModel()
 
 MandelbrotModel::MandelbrotModel(const MandelbrotModel& other)
     : Model(other),
+      SuperSamplingModel(other),
       ColormapModel(other),
       maxIterations(other.maxIterations),
       colorScale(other.colorScale),
@@ -38,6 +40,7 @@ MandelbrotModel::MandelbrotModel(const MandelbrotModel& other)
 }
 
 void MandelbrotModel::applyUniformVariables() {
+    this->SuperSamplingModel::applyUniformVariables();
     this->ColormapModel::applyUniformVariables();
 
     this->shader.setUInt("maxIterations", static_cast<uint>(this->maxIterations));
@@ -45,30 +48,8 @@ void MandelbrotModel::applyUniformVariables() {
 }
 
 void MandelbrotModel::imGuiFrame() {
+    this->SuperSamplingModel::imGuiFrame();
     this->ColormapModel::imGuiFrame();
-
-    ImGui::Text("Color: ");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Rainbow")) {
-        this->setColorMap(MandelbrotModel::Rainbow);
-    	this->shader.recompile();
-    }
-    ImGui::SameLine();
-    if (ImGui::SmallButton("RainbowSmooth")) {
-        this->setColorMap(MandelbrotModel::RainbowSmooth);
-    	this->shader.recompile();
-    }
-    
-    // new line
-    if (ImGui::SmallButton("Black/White")) {
-        this->setColorMap(MandelbrotModel::BlackWhite);
-    	this->shader.recompile();
-    }
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Glowing")) {
-        this->setColorMap(MandelbrotModel::Glowing);
-    	this->shader.recompile();
-    }
 
     if (ImGui::SliderFloat("Color Scale", &this->colorScale, 0.5f, 300.0f)) {
     	this->shader.setFloat("colorScale", this->colorScale);
@@ -80,15 +61,6 @@ void MandelbrotModel::imGuiFrame() {
 
     if (ImGui::SliderFloat("Slice Factor for Black/White", &this->sliceFactor, 0.0f, 1.0f)) {
         this->shader.setFloat("sliceFactor", this->sliceFactor);
-    }
-
-    if (ImGui::Checkbox("Use Double Precision", &this->useDoublePrecision)) {
-        if (this->useDoublePrecision) {
-            this->shader.define("USE_DOUBLE", ""); 
-        } else {
-            this->shader.undefine("USE_DOUBLE");
-        }
-        this->shader.recompile();
     }
 
     if (ImGui::Checkbox("Use Smoothing", &this->useSmoothing)) {
@@ -119,6 +91,7 @@ void MandelbrotModel::imGuiFrame() {
 }
 
 void MandelbrotModel::imGuiScreenshotFrame() {
+    this->SuperSamplingModel::imGuiScreenshotFrame();
     this->ColormapModel::imGuiScreenshotFrame();
     this->imGuiScreenshotFrameHelper();
 }
@@ -129,12 +102,14 @@ std::unique_ptr<Model> MandelbrotModel::clone() const {
 
 
 void MandelbrotModel::makeScreenshotModel() {
+    this->SuperSamplingModel::makeScreenshotModel();
     this->ColormapModel::makeScreenshotModel();
 
     this->setDefaultScreenshotParameters();
 }
 
 void MandelbrotModel::makeScreenshotModel(const Model& otherScreenshotModel) {
+    this->SuperSamplingModel::makeScreenshotModel(otherScreenshotModel);
     this->ColormapModel::makeScreenshotModel(otherScreenshotModel);
 
     const MandelbrotModel* otherScreenshotMandelbrotModel = dynamic_cast<const MandelbrotModel*>(&otherScreenshotModel);
@@ -148,6 +123,7 @@ void MandelbrotModel::makeScreenshotModel(const Model& otherScreenshotModel) {
 
 
 void MandelbrotModel::updateWithLiveModel(const Model& liveModel) {
+    this->SuperSamplingModel::updateWithLiveModel(liveModel);
     this->ColormapModel::updateWithLiveModel(liveModel);
 
     const MandelbrotModel* liveMandelbrotModel = dynamic_cast<const MandelbrotModel*>(&liveModel);
@@ -171,6 +147,15 @@ void MandelbrotModel::setColorMap(ColorMap colorMap) {
 void MandelbrotModel::imGuiScreenshotFrameHelper() {
     if (ImGui::SliderInt("Max Iterations", &this->maxIterations, 0, 5'000)) {
         this->shader.setUInt("maxIterations", static_cast<uint>(this->maxIterations));
+    }
+
+    if (ImGui::Checkbox("Use Double Precision", &this->useDoublePrecision)) {
+        if (this->useDoublePrecision) {
+            this->shader.define("USE_DOUBLE", ""); 
+        } else {
+            this->shader.undefine("USE_DOUBLE");
+        }
+        this->shader.recompile();
     }
 }
 
